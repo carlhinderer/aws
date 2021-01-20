@@ -1,0 +1,38 @@
+Exercise 1
+
+1. Go to the Amazon Web Services home page and sign up for an account.
+
+    - Go to the Amazon Web Services home page.
+    - Click Create a Free Account.
+    - On the sign-in page, click Create an Account.
+    - Note: This might be unavailable in your browser if you previously signed in to the AWS 
+        Management Console. In that case, click Sign in to a different account, and then click 
+        Create a new account.
+    - Type the requested account information, and then click Continue.
+    - Choose Personal or Professional.
+    - Note: These two account types are identical in functionality. You can choose a personal 
+        account for your personal projects or choose professional for use within your company, an 
+        educational institution, or an organization.
+    - Type the requested company or personal information.
+    - Read the AWS Customer Agreement, and then check the box.
+    - Click Create Account and Continue.
+
+2. Add a payment method.
+
+    - On the Payment Information page, add a payment method by typing the requested information 
+        associated with your payment method.
+    - Click Secure Submit.
+
+3. Verify your phone number.
+
+    - On the Phone Verification page, type a phone number that you can use to accept incoming phone 
+        calls.
+    - Enter the code displayed in the security check.
+    - When you're ready to receive a call, click Call me now. In a few moments, an automated system 
+        will call you.
+    - Type the provided PIN on your phone's keypad. After the process has completed, click Continue.
+
+4. Choose a support plan and sign in to your console.
+
+    - On the Select a Support Plan page, select the Basic Plan included in the free tier.
+    - Click Sign in to Console to sign in to your console.

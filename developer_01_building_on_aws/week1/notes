@@ -1,0 +1,140 @@
+-----------------------------------------------------------------------
+|  AWS DEVELOPER: BUILDING ON AWS - WEEK 1                            |
+-----------------------------------------------------------------------
+
+- Exercise 1 - Sign Up For an AWS Account
+
+    1. Sign up for an account
+    2. Add a payment method
+    3. Verify your phone number
+    4. Choose a support plan (Basic Plan)
+    5. Log into the console
+
+
+
+- Launching an EC2 Instance
+
+    - Amazon Linux AMI
+    - Instance Type: t2.micro
+    - Advanced Details = can list commands that will run when instance is launched
+    - Storage - Leave Defaults
+    - Add Tag
+        Key: Name
+        Value: SamplePythonFlaskApp
+    - Security Group = like a virtual firewall, allows control to/from instance
+    - Inbound Rules - Leave Defaults
+        - HTTP (80) from 0.0.0.0/0
+        - SSH (22) from 0.0.0.0/0
+    - Create new Key pair
+        - Name: MyKeyPair
+
+
+
+- Exercise - Launching an EC2 Instance for Course with User Data Script
+
+    - Region: Oregon (us-west-2)
+    - AMI: Amazon Linux AMI
+    - Instance Type: t2.micro
+    - User data script: Below
+    - Tag
+        Key: Name
+        Value: SamplePythonFlaskApp
+        SecurityGroupName: exercise2-sg
+        Security group rules: Allow HTTP
+        Key Pair: Proceed without a key pair
+
+
+
+- User Data Script 
+
+    #!/bin/bash -ex
+    sudo yum update -y
+    sudo curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+    sudo python get-pip.py
+    sudo pip install flask
+    sudo pip install requests
+    mkdir PythonWebApp
+    cd PythonWebApp
+
+    sudo cat >> flaskApp.py << EOF
+    from flask import Flask
+    import requests
+    app = Flask(__name__)
+
+    @app.route("/")
+    def main():
+      r = requests.get('http://169.254.169.254/latest/dynamic/instance-identity/document')
+      text = "Welcome! Here is some info about me!\n\n" + r.text
+      return text
+    
+    
+    if __name__ == "__main__":
+      app.run(host='0.0.0.0', port=80)
+    EOF
+
+    sudo python flaskApp.py
+
+
+
+- EC2
+
+    - Availability Zone = logical grouping of data centers (ie 'us-west-2b')
+    - Each region includes at least 2 AZs
+    - AZs are physically separated, providing resilience
+
+    - Different services have different scope
+    - For instance, EC2 makes you provide an AZ
+    - S3 is regional in scope by default, data is replicated with a region but not outside of it
+    - IAM users are not limitied to a region
+    - AWS operates global infrastructure like DNS and CDNs, these are called 'edge locations'
+
+    - 18 regions currently, 4 more announced
+
+
+
+- Networking in AWS
+
+    - To connect our instances and services together, we use a VPC (Virtual Private Cloud)
+    - VPC can connect to internet, connect our cloud resources, and can connect to company's private network
+
+    - At instance creation, each instance gets a private IP
+    - Can also create a public IP (for instance, web server needs this, DB server does not)
+
+    - We launch EC2 instances into subnets (using CIDR notation) to make them easier to manage
+    - CIDR
+        - Example: 10.0.0.0/16 for our private IPs
+        - The '16' indicates that the first 16 bits are fixed (10.0)
+        - The floating range gives us 10.0.0.0 to 10.0.255.255
+
+    - To allow internet access to our VPC, we define a 'route' in our 'route table'.
+
+    - VPCs have region scope
+    - Subnets have AZ scope
+    - We'll make this easy to deal with using a 'Cloud Formation Template'
+
+
+
+- AWS vs Developer Responsibility
+
+    - Should port 80 be open on my EC2 instance?
+        - Yes - if it is a web server.
+        - No - if it is something else, like a DB server.
+
+    - Responsibility of Tech Stack
+
+        Data and Config
+        Application            DEVELOPER RESPONSIBILITY
+        Guest OS
+        -------------------------- EC2
+        Hypervisor
+        Network                AWS RESPONSIBILITY
+        Physical
+
+    - Other services (like RDS or S3) will move the AWS responsiblity up the ladder.
+
+
+
+- Exercise 3 - Create and Configure a VPC
+
+    - Create a network (via CloudFormation)
+    - SSH to instance and explore metadata and logs
