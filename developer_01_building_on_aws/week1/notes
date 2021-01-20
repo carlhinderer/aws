@@ -42,11 +42,12 @@
 
 - Networking in AWS
 
-    - To connect our instances and services together, we use a VPC (Virtual Private Cloud)
-    - VPC can connect to internet, connect our cloud resources, and can connect to company's private network
+    - To connect our instances and services together, we use a VPC (Virtual Private Cloud).
+    - VPC can connect to internet, connect our cloud resources, and can connect to company's 
+        private network.
 
-    - At instance creation, each instance gets a private IP
-    - Can also create a public IP (for instance, web server needs this, DB server does not)
+    - At instance creation, each instance gets a private IP.
+    - Can also create a public IP (for instance, web server needs this, DB server does not).
 
     - We launch EC2 instances into subnets (using CIDR notation) to make them easier to manage
     - CIDR
@@ -84,5 +85,8 @@
 
 - Exercise 3 - Create and Configure a VPC
 
-    - Create a network (via CloudFormation)
-    - SSH to instance and explore metadata and logs
+    1. Launch an AWS CloudFormation template to create VPC and subnets
+    2. Launch an Amazon EC2 instance with a user data script in a VPC
+    3. Connect to your Amazon EC2 instance
+    4. View log file, query instance metadata, and user data
+    5. Terminate the Amazon EC2 instance

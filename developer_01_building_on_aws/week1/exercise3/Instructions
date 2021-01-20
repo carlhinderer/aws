@@ -1,0 +1,146 @@
+Exercise 3
+
+In this exercise, you will start laying the infrastructure for the course project by 
+  creating a VPC and subnets via an AWS CloudFormation template. You will create more AWS 
+  resources in these subnets in the subsequent exercises.
+
+You will also create an Amazon EC2 instance and learn how to connect to it using an SSH client. 
+  You use an SSH client for remote login and administration over an authenticated secure channel. 
+  You will then look at the log files on the instance and extract information from the instance 
+  metadata and user data script.
+
+
+1. Launch an AWS CloudFormation template to create VPC and subnets.
+
+    In this section, you will create a VPC and subnets by launching an AWS CloudFormation template. If 
+      you are familiar with AWS CloudFormation, you may want to attempt to complete this section by 
+      using the properties below before reading the step-by-step instructions.
+    
+      > AWS Console > Services > CloudFormation
+      > Create Stack
+    
+        Region: Oregon (us-west-2)
+        CloudFormation template: Upload vpc.template template
+        Name of the stack: edx-vpc-stack
+
+      > In your AWS Management Console home page, in the AWS services search textbox at the top, type 
+          VPC, and then select VPC to open the VPC dashboard.
+
+      > In the VPC dashboard, on the left navigation menu, click Your VPCs. You will see a VPC named 
+          edx-build-aws-vpc in the list. Write down the vpc-id of the edx-build-aws-vpc. You will need 
+          the vpc-id in subsequent exercises.
+
+          vpc-0ee929f6d87b19b52
+
+      > In the VPC dashboard, on the left navigation menu, click Subnets. You will see four subnets 
+          starting with edx-subnet-xxxx. Write down the subnet-id of edx-subnet-public-a. You will need 
+          the subnet-id in subsequent exercises.
+
+          subnet-08ca6d39530bf9bac
+
+
+2. Launch an Amazon EC2 instance with a user data script in a VPC.
+
+    In this section, you will launch an Amazon EC2 instance with an user data script. If you are 
+      familiar with Amazon EC2, you may want to attempt to complete this section by using the properties 
+      below before reading the step-by-step instructions.
+    
+      Region: Oregon (us-west-2)
+      Amazon Machine Image (AMI): Amazon Linux AMI
+      Instance Type: t2.micro
+      Network VPC: edx-build-aws-vpc
+      Subnet: edx-subnet-public-a
+      User data script: Same one from exercise 2
+      Tag: Ex3WebServer
+      Security group name: exercise3-sg
+      Security group rules: Allow HTTP and SSH
+      Key Pair: Create a new key pair and save it for later use.
+                  > Download it to a safe place, we'll use it for the rest of the course.
+
+    > Paste the public IP address of your instance in your web browser to display the welcome web
+        page. This page is now displaying dynamic information about your server.
+
+
+3. Connect to your Amazon EC2 instance.
+
+    In this section, you will connect to your Amazon EC2 instance via SSH. An SSH connection requires 
+      port 22 to be open on your network. You may need to contact your network administrator to ensure 
+      that this is open.
+
+    For MAC/Linux users:
+
+    > Open the Terminal application.
+
+    > Type the commands below. In both commands, replace PATH-TO-PEM-FILE with a reference to the .pem 
+        file that you downloaded while launching the instance. In the second command, replace PUBLIC-IP 
+        with the IPv4 Public IP of the instance.
+
+      $ chmod 400 PATH-TO-PEM-FILE
+      $ ssh -i PATH-TO-PEM-FILE ec2-user@PUBLIC-IP
+    
+      You will see a prompt like the one below. Answer yes to the prompt.
+
+      The authenticity of host '54.201.7.240 (54.201.7.240)' can't be established. ECDSA key 
+        fingerprint is SHA256:TrCPkFBL0F+pTp3LH+UGFPhGjl7N4qaoLucu21RWsRM. Are you sure you want to 
+        continue connecting (yes/no)?
+
+
+4. View log file, query instance metadata, and user data.
+
+     In this section, you will inspect the cloud-init logs to verify the steps in the UserData 
+       script executed on the Amazon EC2 Instance. Then, you will query the instance metadata service 
+       from the Amazon EC2 instance so that you can see how your application is printing information 
+       about itself on the welcome page.
+
+     > To view the log file, type the command below in your instance terminal.
+
+         $ cat /var/log/cloud-init-output.log
+
+       Explore the log file to see the log entries generated for installing the user data script.
+
+
+     > To view the instance metadata, type the command below:
+
+         $ curl http://169.254.169.254/latest/meta-data/
+
+
+     > Execute the command below to get the instance identity document of your instance:
+
+         $ curl http://169.254.169.254/latest/dynamic/instance-identity/document
+
+
+     > Execute the command below to get the instance public IP address:
+
+         $ curl http://169.254.169.254/latest/meta-data/public-ipv4
+
+
+     > Execute the command below to get the MAC address of the instance:
+
+         $ curl http://169.254.169.254/latest/meta-data/mac
+
+     > Execute the command below to get the VPC ID in which the instance resides. Make sure to replace
+         Your-MAC in the command below with the MAC address of your instance:
+
+         $ curl http://169.254.169.254/latest/meta-data/network/interfaces/macs/Your-MAC/vpc-id
+
+
+     > Execute the command below to get the subnet-id in which the instance resides. Make sure to replace
+         Your-MAC in the command below with the MAC address of your instance:
+
+         $ curl http://169.254.169.254/latest/meta-data/network/interfaces/macs/Your-MAC/subnet-id
+
+
+     > Execute the command below to get the instance user data:
+
+         $ curl http://169.254.169.254/latest/user-data
+
+
+    > Go to the EC2 dashboard in your console, locate the Amazon EC2 instance you created and verify 
+        the public IP address, the VPC ID and the subnet-id of the instance you just queried in the 
+        instance terminal. You should be able see this information in the Description tab at the bottom.
+
+
+5. Terminate the Amazon EC2 instance.
+
+In this section, you will terminate the Amazon EC2 instance by selecting the instance in the EC2 
+  dashboard and clicking Actions -> Instance State -> Terminate . 
