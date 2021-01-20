@@ -16,7 +16,9 @@
 
     - Amazon Linux AMI
     - Instance Type: t2.micro
-    - Advanced Details = can list commands that will run when instance is launched
+    - Advanced Details = user data script
+        > As Text
+        > Copy userDataScript.sh into text area
     - Storage - Leave Defaults
     - Add Tag
         Key: Name
@@ -30,65 +32,11 @@
 
 
 
-- Exercise - Launching an EC2 Instance for Course with User Data Script
+- Exercise 2 - Launch an EC2 Instance with a user data script
 
-    - Region: Oregon (us-west-2)
-    - AMI: Amazon Linux AMI
-    - Instance Type: t2.micro
-    - User data script: Below
-    - Tag
-        Key: Name
-        Value: SamplePythonFlaskApp
-        SecurityGroupName: exercise2-sg
-        Security group rules: Allow HTTP
-        Key Pair: Proceed without a key pair
-
-
-
-- User Data Script 
-
-    #!/bin/bash -ex
-    sudo yum update -y
-    sudo curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
-    sudo python get-pip.py
-    sudo pip install flask
-    sudo pip install requests
-    mkdir PythonWebApp
-    cd PythonWebApp
-
-    sudo cat >> flaskApp.py << EOF
-    from flask import Flask
-    import requests
-    app = Flask(__name__)
-
-    @app.route("/")
-    def main():
-      r = requests.get('http://169.254.169.254/latest/dynamic/instance-identity/document')
-      text = "Welcome! Here is some info about me!\n\n" + r.text
-      return text
-    
-    
-    if __name__ == "__main__":
-      app.run(host='0.0.0.0', port=80)
-    EOF
-
-    sudo python flaskApp.py
-
-
-
-- EC2
-
-    - Availability Zone = logical grouping of data centers (ie 'us-west-2b')
-    - Each region includes at least 2 AZs
-    - AZs are physically separated, providing resilience
-
-    - Different services have different scope
-    - For instance, EC2 makes you provide an AZ
-    - S3 is regional in scope by default, data is replicated with a region but not outside of it
-    - IAM users are not limitied to a region
-    - AWS operates global infrastructure like DNS and CDNs, these are called 'edge locations'
-
-    - 18 regions currently, 4 more announced
+    1. Launch an EC2 instance with a user data script
+    2. Test the sample app running on your instance
+    3. Terminate the EC2 instance
 
 
 

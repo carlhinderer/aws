@@ -1,0 +1,32 @@
+Exercise 2
+
+1. Launch an Amazon EC2 instance with a user data script.
+
+     - In this section, you will launch an Amazon EC2 instance with a user data script. If you 
+         are familiar with Amazon EC2, you may want to attempt to complete this section by using 
+         the properties below before reading the step-by-step instructions.
+       
+         Region: Oregon (us-west-2)
+         Amazon Machine Image (AMI): Amazon Linux AMI
+         Instance Type: t2.micro
+         User data script: Download
+         Tag: 
+           Key: Name, Value: SamplePythonFlaskApp
+         Security group name: exercise2-sg (New Group)
+         Security group rules: 
+           Allow HTTP (Add Rule > Custom TCP Rule > Port 80, Source 0.0.0.0/0)
+           Delete SSH Rule
+         Key Pair: Proceed without a key pair
+  
+
+2. Test the sample app running on your instance
+
+    - Open a browser and type the public IP of the Amazon EC2 instance you copied earlier.
+    - You should see a sample Python app running on your Amazon EC2 instance.
+    - Congratulations! You have launched your first web server in AWS.
+
+
+3. Terminate the Amazon EC2 instance
+
+    - In this section, you will terminate the Amazon EC2 instance by selecting the instance in 
+        EC2 dashboard and clicking Actions -> Instance State -> Terminate . 
