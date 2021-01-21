@@ -1,0 +1,76 @@
+Exercise 6
+
+
+In this exercise, you will extend the application by adding the Amazon Rekognition component. 
+  As soon as you upload a photo to your Amazon S3 bucket, Amazon Rekognition processes the photo 
+  and identifies objects, people, text, scenes, and activities in the photo and labels it accordingly.
+
+Note: Make sure to sign in to your AWS account with the AWS IAM user edXProjectUser credentials.
+
+To get started, follow the instructions below.
+
+1. Download the exercise code .zip file to your AWS Cloud9 environment.
+
+     > Type the command below in your AWS Cloud9 terminal to make sure you are in the ~/environment 
+         directory of your AWS Cloud9 instance.
+
+         $ cd ~/environment
+
+     > Type the command below in your AWS Cloud9 terminal to download the python code for the Amazon 
+         Rekognition component.
+
+         $ wget https://s3-us-west-2.amazonaws.com/us-west-2-tcdev/courses/AWS-100-ADG/v1.1.0/exercises/
+             ex-rekognition.zip
+
+     > On the left tree view, you should see the exercise code .zip file named ex-rekognition.zip.
+
+
+2. Unzip the exercise code .zip file.
+
+     > Unzip the exercise code .zip file by typing the command below on your AWS Cloud9 terminal.
+
+         $ unzip ex-rekognition.zip
+
+     > The contents of the .zip file should be extracted to a folder with a similar name. You can 
+         view the folder on the left tree view.
+
+
+3. Explore the exercise code.
+
+     > Open the exercise-rekognition/FlaskApp/application.py file.
+
+     > In the Homepage route function, notice that a Boto 3 client for Amazon Rekognition is 
+         created. The image uploaded in the Amazon S3 bucket is passed to the detect_labels API, 
+         which returns a list of labels processed by Amazon Rekognition. These labels are then 
+         populated on the UI.
+
+
+4. Run and test the code.
+
+     > To run the application.py code, on the top menu bar, click Run -> Run Configurations -> 
+         Python3RunConfiguration.
+
+       Important: Notice that the run configuration runs the application.py for the previous 
+         exercise.  Point the run configuration to the correct exercise folder by editing the folder 
+         path in the Command text box in the bottom pane.
+         In that text box, type exercise-rekognition/FlaskApp/application.py
+         Click Run on the left side. You should see a message like this:
+
+       Running on http://0.0.0.0:8080/
+
+     > To test the application, click Preview -> Preview Running Application on the top menu bar of 
+         the Cloud9 environment.
+    
+       Pop out the application in a new window by clicking the Pop Out button.
+
+       The application should now have the functionality related to Amazon Rekognition.
+
+     > To test the Amazon Rekognition component, click Home on the application.
+         Upload an image. Amazon Rekognition should label the image with the image properties.
+
+
+Optional Challenge
+
+The Boto 3 detect_labels response includes a Confidence value. Can you update the application UI to 
+  include the Confidence? Or define a threshold and only display labels over the confidence 
+  threshold?

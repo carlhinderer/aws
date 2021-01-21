@@ -60,3 +60,88 @@
         1. Bucket Policies
         2. IAM Users and Groups
         3. Access Control Lists
+
+
+
+- Amazon Rekognition
+
+    - Object and Scene Detection
+    - Facial Analysis
+    - Facial Recognition
+
+    - Gives you back labels, along with confidence ratings for each tag
+
+    - Possible Uses for Facial Recognition
+        - Find text in imanges
+        - Person tracking
+        - Find unsafe content
+        - Celebrity recognition
+
+
+
+- Example - Using Rekognition Label Detections
+
+    import pprint
+    import boto3
+
+    from PIL import Image, ImageDraw
+
+    rek = boto3.client('rekognition')
+
+    with open('MonaLisa.jpg', 'rb') as f:
+        image_bytes = f.read()
+
+    # Send image to rekognition for label detection
+    response = rek.detect_labels(
+        Image = {
+            'Bytes': image_bytes
+        })
+
+    # Print response
+    pprint.pprint(response)
+
+    # Output Excerpt
+    #  {'Labels': [{'Confidence': 99.31106, 'Name': 'Human'},
+    #              {'Confidence': 99.31106, 'Name': 'People'},
+    #              {'Confidence': 97.07397, 'Name': 'Art'},
+    #              {'Confidence': 97.07397, 'Name': 'Painting'} ]}, ...
+
+
+
+- Example - Using Rekognition Facial Detection
+
+    # Send image for facial detection
+    response = rek.detect_faces(
+        Image = {
+            'Bytes': image_bytes
+        },
+        Attributes=['ALL'])
+
+    # Print response
+    pprint.pprint(response)
+
+    # Output Excerpt
+    # {'FaceDetails': [{'AgeRange': ...,
+    #                   'Beard': ...,
+    #                   'Emotions': ...,
+    #                   'Eyeglasses': ...,
+    #                   'Gender': ...}], ...
+    # }
+
+
+
+- Example - Using Rekognition Text Detection
+
+    # Here we send in an example of a street sign
+    with open('pike-st.jpg', 'rb') as f:
+        image_bytes = f.read()
+
+    response = rek.detect_text(
+        Image = {
+            'Bytes': image_bytes
+        })
+
+    pprint.pprint(response)
+
+    # Output Excerpt
+    # {'DetectedText': 'Pike St 1500', ...}
