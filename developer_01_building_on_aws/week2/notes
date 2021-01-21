@@ -63,6 +63,14 @@
 
 
 
+- Exercise 5 - Configure the AWS Cloud9 environment and Add S3
+
+    1. Create AWS Cloud9 environment and explore the environment.
+    2. Create an Amazon S3 bucket to store the application photos.
+    3. Build the Amazon S3 uploader component of the application in the AWS Cloud9 environment.
+
+
+
 - Amazon Rekognition
 
     - Object and Scene Detection
@@ -145,3 +153,12 @@
 
     # Output Excerpt
     # {'DetectedText': 'Pike St 1500', ...}
+
+
+
+- Exercise 6 - Add Amazon Rekognition
+
+    1. Download the exercise code .zip file to your AWS Cloud9 environment.
+    2. Unzip the exercise code .zip file.
+    3. Explore the exercise code.
+    4. Run and test the code.

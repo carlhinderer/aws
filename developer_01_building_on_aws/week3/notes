@@ -1,0 +1,66 @@
+-----------------------------------------------------------------------
+|  AWS DEVELOPER: BUILDING ON AWS - WEEK 3                            |
+-----------------------------------------------------------------------
+
+- AWS IAM
+
+    1. A trusted identity assumes a role, and sends a request to the security token service.
+
+        TRUSTED IDENTITY                                    SECURITY
+                                 (Assume Role)              TOKEN
+          AWS Account         ------------------>           SERVICE
+          AWS Service
+
+
+    2. The Security Token Service Sends back temporary security credentials.
+
+                                (Temp Security Creds)       SECURITY
+        TRUSTED IDENTITY      <------------------------     TOKEN
+                                                            SERVICE
+
+
+    3. The trusted identity can now access AWS Resources.
+
+        TRUSTED IDENTITY      ------------------>           RESOURCES
+
+                                                            ie S3
+
+
+    - A role has permissions, which are created using a policy.
+
+
+
+- IAM Example
+
+    - We want our EC2 instance to be able to call the Rekognition service to get tags.
+
+    - The Trusted Identity will be EC2, which will attach a role to new instances that are created.
+
+    - The boto3 SDK will know how to obtain temporary security credentials and assume the roles
+        granted automatically by reading the instance metadata service.
+
+
+
+- Amazon RDS
+
+    - 2 Replication Models - 1 for availability (Multi-AZ) and 1 for scaling reads
+    - MySQL, MariaDB, Postgres, Oracle, SqlServer, or Amazon Aurora DB engines
+    - Can automate backups
+
+    - DB Instance = isolated cloud database environment, can contain multiple databases
+
+
+
+- Exercise 7 - Using Amazon RDS
+
+    1. Create an Amazon RDS database instance.
+    2. Modify the security group of the Amazon RDS database.
+    3. Download the exercise code .zip file and unzip it to your AWS Cloud9 environment.
+    4. Explore the exercise code.
+    5. Run the database script.
+    6. Configure environment variables and run and test the code.
+    7. Stop the Amazon RDS database instance.
+
+
+
+- 
