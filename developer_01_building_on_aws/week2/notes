@@ -1,0 +1,30 @@
+-----------------------------------------------------------------------
+|  AWS DEVELOPER: BUILDING ON AWS - WEEK 2                            |
+-----------------------------------------------------------------------
+
+- Everything in AWS is an API call
+
+    - There are SDKs for calling these APIs in a variety of programming languages
+    - We'll use Boto3, the Python AWS SDK
+
+        $ pip install boto3
+
+    - To access the API, we'll need application credentials:
+
+        AWS_ACCESS_KEY
+        AWS_SECRET_KEY
+
+    - We'll also associate privileges to the account that corresponds to the keys.
+
+    - We'll also need to install the AWS CLI.
+
+
+
+- Exercise 4 - Set Up an IAM User and Configure AWS CLI
+
+    1. Create an AWS IAM policy.
+    2. Create an AWS IAM user, attach a policy to the user, and generate access keys.
+    3. Create an Amazon EC2 instance and configure AWS CLI with the access keys of the 
+         AWS IAM user edXProjectUser.
+    4. Install Boto 3 on the instance and explore Boto 3 APIs.
+    5. Terminate the Amazon EC2 instance.
