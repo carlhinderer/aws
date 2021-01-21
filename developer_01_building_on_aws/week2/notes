@@ -28,3 +28,35 @@
          AWS IAM user edXProjectUser.
     4. Install Boto 3 on the instance and explore Boto 3 APIs.
     5. Terminate the Amazon EC2 instance.
+
+
+
+- Amazon S3
+
+    - Designed for:
+
+        Durability = 99.999999999 % ("11 9s")
+        Availability = 99.99 % ("4 9s")
+
+
+    - Buckets
+
+        - Live in a region
+        - Provide a location for data (ie 'russ-photos')
+        - Key is file path (ie 'puppy.jpg')
+        
+        - Example
+            https://russ-photos.s3.amazonaws.com/photo/puppy.jpg
+
+
+
+- S3 Access Control
+
+    - By deafult, all S3 resources are private.  Only the AWS account that created the resources
+        can access them.
+
+    - We can configure access control via 3 methods:
+
+        1. Bucket Policies
+        2. IAM Users and Groups
+        3. Access Control Lists
