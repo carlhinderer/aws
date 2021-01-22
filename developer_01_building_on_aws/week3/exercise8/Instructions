@@ -1,0 +1,145 @@
+Exercise 8
+
+
+In this exercise, you will deploy the application to two Amazon EC2 instances to make the 
+  application highly available. You will also create and configure an Application Load Balancer 
+  to route the web traffic to the two instances. You will then take one of the web servers down 
+  and see how the Application Load Balancer diverts traffic to the web server that is still up, 
+  thereby causing minimal outage.
+
+Note: Make sure to sign-in to your AWS account with the AWS IAM user edXProjectUser credentials.
+
+To get started, follow the steps below.
+
+1. Start the Amazon RDS database instance.
+
+    > In the AWS Console, click Services, then click Relational Database Service to go to the 
+        Amazon RDS dashboard.
+
+    > In the left navigation pane, click Instances. From the list of instances, select 
+        edx-photos-db.
+
+    > At the top, click Instance actions, and Start.
+
+
+2. Create a security group in edx-build-aws-vpc network to allow web traffic to the Amazon 
+     EC2 instance acting as the web server.
+
+   In this section, you will create a security group for the Amazon EC2 instance in 
+     edx-build-aws-vpc. If you are familiar with security groups, you may want to attempt to 
+     complete this section before reading the step-by-step instructions.
+
+     > Services > EC2 Dashboard > Security Groups
+
+     > Security group name: web-server-sg
+     > Region: Oregon (us-west-2)
+     > VPC: edx-build-aws-vpc
+     > Rules: Add Allow HTTP and SSH (Inbound) Rules
+
+
+3. Modify the Amazon RDS database security group to allow traffic from the web server.
+
+   In this section, you will modify the security group of the Amazon RDS database instance to allow 
+     it to communicate with the Amazon EC2 instance that is acting as the web server.
+
+     > In the AWS Console, click Services, then click EC2 to open the EC2 dashboard.
+     > On the left navigation menu, under NETWORK & SECURITY, click Security Groups.
+     > From the list of security groups, select the security group of the Amazon RDS database instance 
+         you noted in the previous exercise.
+     > On the bottom pane, click the Inbound tab.
+     > Click Edit.
+     > Click Add Rule.
+     > For Type, select MYSQL/Aurora.
+     > In the Source textbox, type web-server-sg. Select the security group that is displayed.
+     > Click Save.
+
+
+4. Create an Amazon S3 bucket for storing the deployment artifacts.
+
+     In this section, you will create an Amazon S3 bucket for storing the deployment artifacts. If 
+       you are familiar with Amazon S3, you may want to attempt to complete this section before reading 
+       the step-by-step instructions.
+
+       > Region: Oregon (us-west-2)
+       > Bucket name: Type a unique bucket name and make a note of it for later use.
+
+           storage-artifacts4321
+
+
+5. Update the configuration files.
+
+    The app.ini file contains the settings for the uwsgi server. The uwsgi server hosts the Python 
+      Flask application. Just like your AWS Cloud9 IDE, the uwsgi server also needs to be configured 
+      with the database information.
+
+    In your AWS Cloud9 environment, open the exercise-rds/Deploy/app.ini file. You should see the 
+      environment variables DATABASE_HOST, DATABASE_USER, DATABASE_PASSWORD, DATABASE_DB_NAME, 
+      FLASK_SECRET, and PHOTOS_BUCKET.
+
+    Fill in the values of the environment variables as per the table shown below.
+
+      DATABASE_HOST       Database endpoint you noted in previous exercise
+      DATABASE_USER       web_user
+      DATABASE_PASSWORD   Password for the web_user
+      DATABASE_DB_NAME    Photos
+      FLASK_SECRET        Type a new secret consisting of random letters and numbers.
+      PHOTOS_BUCKET       Copy and paste the PHOTOS_BUCKET value from the Cloud9 environment variables list.
+
+    Note: Make sure to delete any white space inserted while copy/pasting.
+
+    > Save the app.ini file.
+
+    > In your AWS Cloud9 environment, open the exercise-rds/Deploy/userdata.txt file.
+    > On the second line of the file, replace YOUR-BUCKET-NAME with the name of the Amazon S3 bucket 
+        you created earlier.
+
+      Important: Make sure to replace with the name of the deployment bucket created in this exercise, 
+        rather than the photos bucket.
+
+    > Save the userdata.txt file.
+
+
+6. Create the deployment .zip package with updated settings
+
+    In your AWS Cloud9 terminal, change the working directory to exercise-rds by using the command 
+      below.
+
+        $ cd exercise-rds
+
+    Note: The exercise-rds folder should be in your AWS Cloud9 environment from the previous exercise.
+
+    > Create a deployment package by zipping up the modified configuration files and the Python Flask 
+        app. Type the command below:
+
+        $ zip -r ~/deploy-app.zip Deploy/ FlaskApp/
+
+    This creates a .zip file of the deployment package with updated configuration settings along with 
+      the Python Flask application.
+
+
+7. Copy the deployment package to the Amazon S3 bucket.
+
+    Using the AWS CLI command below, copy the zipped deployment package to the Amazon S3 bucket 
+      you created earlier. In your AWS Cloud9 terminal, type the command shown below.
+
+    Important: Make sure to replace with the name of the deployment bucket created in this exercise, 
+      rather than the photos bucket.
+
+      $ aws s3 cp ~/deploy-app.zip s3://YOUR_BUCKET_NAME/
+
+    This command copies the deployment package to the specified Amazon S3 bucket.
+
+
+8. Create an AWS IAM role to allow the user to download the deployment package.
+
+     In this section, you will create an AWS IAM role to authenticate the EC2 instance to download 
+       the deployment artifacts stored in the Amazon S3 bucket. You will also authenticate the instance 
+       to communicate with Amazon Rekognition. If you are familiar with AWS IAM roles, you may want to 
+       attempt to complete this section before reading the step-by-step instructions.
+
+       > Services > IAM > Roles > Create Role
+
+       > Trusted entity: Amazon EC2
+       > Use case: Allows Amazon EC2 instances to call AWS services on your behalf
+       > Permissions: AmazonS3FullAccess, AmazonRekognitionReadOnlyAccess
+       > Role Name: ec2-webserver-role

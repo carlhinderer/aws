@@ -63,4 +63,50 @@
 
 
 
-- 
+- Intro to Availability
+
+    - S3
+        - Already replicated across regions
+        - Allows versioning
+
+    - RDS
+        - Creates nightly backups
+        - Allows Multi-AZ operation
+
+    - EC2
+        - Can create multiple instances in different AZs
+        - The latency between AZs is small enough to synchronously replicate data
+        - Can load balance them
+
+
+
+- Load Balancing
+
+    1. Network config for listening and AZs
+
+    2. Register EC2 instances
+
+    3. Configure health check
+
+    4. Start using load balancer host name in DNS
+
+
+
+- Exercise 8
+
+    1. Start the Amazon RDS database instance.
+    2. Create a security group in edx-build-aws-vpc network to allow web traffic to the Amazon 
+         EC2 instance acting as the web server.
+    3. Modify the Amazon RDS database security group to allow traffic from the web server.
+    4. Create an Amazon S3 bucket for storing the deployment artifacts.
+    5. Update the configuration files.
+    6. Create the deployment .zip package with updated settings.
+    7. Copy the deployment package to the Amazon S3 bucket.
+    8. Create an AWS IAM role to allow the user to download the deployment package.
+    9. Provision Amazon EC2 instances and deploy the application via user data
+    10. Test the deployed application on the Amazon EC2 instances.
+    11. Create and configure the Application Load Balancer.
+    12. Take one web server down and test for the availability of the application.
+    13. Terminate the Amazon EC2 instances.
+    14. Delete the load balancer.
+    15. Stop the Amazon RDS database instance.
