@@ -73,7 +73,7 @@ To begin, follow the instructions below.
 
        > Install Boto 3 on your AWS Cloud9 instance by typing this command:
 
-           $ sudo pip3 install boto3
+           $ sudo pip-3.6 install boto3
 
        > At the terminal, type python3 and press ENTER.
 
@@ -127,8 +127,7 @@ To begin, follow the instructions below.
      > Install the requirements for the project by executing the command below in your AWS Cloud9 
          terminal.
 
-         # Note that I had to update Pillow to 8.1.0 to get this to work
-         $ sudo pip-3 install -r exercise-s3-upload/FlaskApp/requirements.txt
+         $ sudo pip-3.6 install -r exercise-s3-upload/FlaskApp/requirements.txt
 
      > To run the application.py code:
          - Select exercise-s3-upload/FlaskApp/application.py in the tree view.
