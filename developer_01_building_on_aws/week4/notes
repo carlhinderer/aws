@@ -1,0 +1,111 @@
+-----------------------------------------------------------------------
+|  AWS DEVELOPER: BUILDING ON AWS - WEEK 4                            |
+-----------------------------------------------------------------------
+
+- Current Database Schema
+
+    - Here is our photos table as of now:
+
+      Photos:
+
+      object_key                    labels           description   cognito_username   created_datetime   
+      -------------------------------------------------------------------------------------------------
+      photos/7e36a3c1c14088a9.png   Building, ...    NULL          NULL               NULL
+
+
+
+- Presigned URLs
+
+    - We are issuing pre-signed URLs so that only users of our site can access the photos.
+
+      By default, all S3 objects are private.  Only the owner has permission to access the objects.
+        However, the object owner can optionally share objects with others by creating a presigned
+        URL.  In this case, the owner uses their own security credentials to grant time-limited
+        permission to download the objects.
+
+
+    - To create a presigned URL for your object, you must provide:
+
+        1. your security credentials
+        2. a specified bucket name
+        3. an object key
+        4. the HTTP method that should be used (usually GET to download the object)
+        5. an expiration date and time
+
+
+
+- Adding Support for Users and Private Data to the Application
+
+    - Right now, anyone who visits our sites can view all photos.  We want to add users, then
+        restrict access so that a user can only see their own photos.
+
+
+    - We could build user accounts functionality using the database, but instead we'll use Amazon
+        Cognito to store the users.
+
+
+    - We'll add:
+
+        1. Identity = using the Cognito user pool
+
+        2. Authorization = in Python code, we'll retrieve only the relevant photos in RDS, then
+             generate signed URLs for those assets only
+
+        3. Encryption = in transit and at rest
+
+
+
+- Identifying Users
+
+    - We typically use emails and passwords to identify users, but there are a few complications;
+
+        1. People often forget their password, so they need to be able to reset it.
+        2. You have to verify email/phone numbers.
+        3. You might let users log in with aliases.
+
+
+
+- Working with Cognito User Pools
+
+    1. Create a User Pool
+
+    2. Set attributes for User Pool
+         - what attributes are required (username/email/phone number)
+         - whether to include a nickname
+
+    3. Set policies
+         - password strength
+         - admin policies
+
+    4. Add message customizations
+         - for verifying account
+         - for changing or resetting password
+         - etc.
+
+    5. Create an App Client
+         - allows our application to communicate with User Pool
+
+
+
+- Application Flow Using Cognito
+
+    - A diagram of the flow is included in 'Cognito-Application-Flow.png'
+
+
+    - Flow:
+
+        1. User requests login page (GET /login)
+
+        2. The login endpoint is returned to the user (REDIRECT /login)
+
+        3. The user sends their credentials to Cognito (GET /login?response_type=code)
+
+        4. Upon login success, the user is redirected to a callback function (GET /callback?code=...)
+
+        5. When a user hits the callback route in our application, we call the Cognito Token 
+             Endpoint, where we exchange code for JWT tokens, then verify tokens using Json Web Key.
+
+        6. The user is not successfully logged in.
+             - Send success message
+             - set login user
+             - REDIRECT /
