@@ -109,3 +109,56 @@
              - Send success message
              - set login user
              - REDIRECT /
+
+
+
+- Encryption In Transit and At Rest
+
+    - Can get a domain name from AWS Route 53.
+
+
+    - Can get certificate for client <-> ALB connection from:
+
+        - Amazon Certificate Manager
+        - Other CA if you already bought a certificate
+
+
+    - Can get certificates for ALB <-> EC2 instance from:
+
+        - Komodo
+        - Digicert
+        - Let's Encrypt (free)
+
+
+    - For many applications, just encrypting the connection between the client and ALB will be
+        good enough.
+
+      However, if we are working with sensitive data of some kind (ie CC numbers of health records),
+        we will require end-to-end encryption.
+
+
+    - Encryption In Transit
+
+        - Client to ALB = Certificate
+        - ALB to EC2 Instances = Certificate
+
+        - EC2 to S3 = Use HTTPS API to S3, provide user with HTTPS URL for downloads
+        - EC2 to Cognito = Use HTTPS API
+        - EC2 to Rekognition = Use HTTPS API
+        - EC2 to RDS = Add certificate to RDS instance, use HTTPS connection to database
+
+
+    - Encryption At Rest
+
+        - Cognito = handles encryption at rest
+        - Rekognition = not storing data
+        - RDS = can enable encryption for instance
+        - S3 = can enable encryption for entire bucket or per-object basis
+
+        - EC2 = can enable option to encrypt data on server
+
+        - We can either use the AWS default keys or get more fine-grained control using Amazon KMS
+            (Key Management Service).
+
+
+    - Diagram of encryption architecture is stored at 'Encryption.png'.
