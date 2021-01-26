@@ -177,4 +177,8 @@
 
 
 
-- 
+- Optional Exercise - Polly
+
+    1. Create Amazon Polly synthesized speech with the AWS CLI.
+    2. Explore the Amazon Polly voices.
+    Challenge: Add Amazon Polly to the photos application
