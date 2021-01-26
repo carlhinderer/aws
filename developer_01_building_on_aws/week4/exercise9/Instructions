@@ -1,0 +1,102 @@
+Exercise 9
+
+
+In this exercise, you will add a sign-up/sign-in component to your application by using Amazon 
+  Cognito. After setting up Amazon Cognito, the photos will get stored to/retrieved from the user 
+  created in Amazon Cognito.
+
+Note: Make sure to sign in to your AWS account with the AWS IAM user edXProjectUser credentials.
+
+To begin, follow the steps below.
+
+
+1. Start the RDS database instance.
+
+     > In the AWS Console, click Services, then click Relational Database Service to open the Amazon 
+         RDS dashboard.
+     > In the left navigation pane, click Instances. From the list of instances, select edx-photos-db.
+     > At the top, click Instance actions, and then click Start.
+
+
+2. Locate the Cloud9 Preview URL.
+
+     In the previous exercises you have been using the Preview Running Application feature of AWS 
+       Cloud9. Before creating the Cognito user pool you will retrieve the preview URL used by Cloud9. 
+       You will use this to configure the Cognito callback and signout URLs.
+
+     > In your AWS Cloud9 environment, on the top menu bar, click Run -> Run Configurations ->
+         Python3RunConfiguration.
+     > Click Preview -> Preview Running Application on the top menu bar of the Cloud9 environment.
+
+     > Pop out the application in a new window by clicking the Pop Out button.
+
+       Note the URL used by the preview, it will look like this:
+
+         https://0123456789abcdef0123456789abcdef.vfs.cloud9.us-west-2.amazonaws.com/
+
+       You will use this URL in the next section when configuring your Cognito user pool. Paste this 
+         URL into a text editor for future reference.
+
+         https://1d11e0e024af4b47b2fe1d24cd4d5c93.vfs.cloud9.us-west-2.amazonaws.com/
+
+
+3. Set up an Amazon Cognito user pool.
+
+    In the AWS Console, go to the Amazon Cognito
+    Make sure you are still in the Oregon (us-west-2) region.
+    Click Manage your User Pools.
+    At the top right corner, click Create a user pool.
+    For Pool name, type photos-pool.
+    Click Step through settings.
+    For How do you want your end users to sign in?, select Email address or phone number.
+    For Which standard attributes do you want to require?, select Nickname.
+    Click Next step.
+    Leave the default settings on the Policy page and click Next step.
+    Skip the MFA and verifications pages and click Next step.
+    On the Message customization page, select Verification Type as Link. Feel free to customize the email body.
+    Click Next Step.
+    Skip the Tag section and click Next Step.
+    Leave the default setting on the Devices page and click Next step.
+    On the App Clients page, click Add an app client.
+    For App client name, type a client name, for example, WebsiteClient.
+    Leave the other default settings and click Create app client.
+    Click Next Step.
+    Skip the Triggers page and click Next Step
+    On the Review page, click Create Pool.
+    After the pool is created, write down the Pool ID for later use.
+    In the left navigation menu, under App integration, click App client settings.
+    For Enabled Identity Providers, check Cognito User Pool.
+
+    For Callback URL(s), enter the Cloud9 preview URL you noted in the previous step, then add callback to the end of the URL.
+
+    As an example the Callback URL(s) will look like this https://0123456789abcdef0123456789abcdef.vfs.cloud9.us-west-2.amazonaws.com/callback
+
+    For Sign out URL(s), enter the Cloud9 preview URL.
+
+    Note the Sign out URL(s) needs to end in the trailing slash, e.g. https://0123456789abcdef0123456789abcdef.vfs.cloud9.us-west-2.amazonaws.com/
+    Under OAuth 2.0, for Allowed OAuth Flows, select Authorization code grant and for Allowed OAuth Scopes, select openid.
+    Click Save changes at the bottom.
+    In the left navigation menu, under App integration, click Domain name.
+    Type a domain name, check its availability, and click Save changes. Write down the domain name for later use.
+    In the left navigation menu, under General settings, click App clients.
+    Click Show details.
+    Make a note of the App client ID and App client secret for later use.
+
+    Click Return to pool details at the bottom to return to the Pool details page.
+
+4. Download and explore the exercise code.
+
+    Type the command below in your AWS Cloud9 terminal to make sure you are in the ~/environment directory of your AWS Cloud9 instance.
+
+    cd ~/environment
+
+    In your AWS Cloud9 environment, download the exercise code by typing the command below in the terminal.
+
+    wget https://us-west-2-tcdev.s3.amazonaws.com/courses/AWS-100-ADG/v1.1.0/exercises/ex-cognito.zip
+
+    Unzip the exercise code .zip file by typing the command below in your AWS Cloud9 terminal.
+
+    unzip ex-cognito.zip
+
+    Open the exercise-cognito/FlaskApp/application.py file. Scroll through the contents and find the routes for /login, /logout, and /callback. Notice that the Amazon Cognito settings are being pulled from the config file, config.py. You may explore the code by referring to the commented documentation links in each of the routes.
+

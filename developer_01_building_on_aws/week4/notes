@@ -162,3 +162,19 @@
 
 
     - Diagram of encryption architecture is stored at 'Encryption.png'.
+
+
+
+- Exercise 9 - Add Cognito for User Management
+
+    1. Start the RDS database instance.
+    2. Locate the Cloud9 Preview URL.
+    3. Set up an Amazon Cognito user pool.
+    4. Download and explore the exercise code.
+    5. Configure the Amazon Cognito environment variables and run the exercise code.
+    6. Test the application.
+    7. Stop the Amazon RDS database instance.
+
+
+
+- 
