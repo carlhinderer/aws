@@ -68,3 +68,35 @@
     segment.put_annotation('User', 'Superuser')        # Will be able to query by this attribute
     list_my_buckets()
     xray_recorder.end_segment()
+
+
+
+- AWS Lambda
+
+    - serverless compute
+    - you invoke or is triggered by other AWS services
+    - node.js Javascript, Python, Java, C# .NET core, or Go
+
+
+
+- Ways to Trigger Lambda
+
+    1. API Gateway (restful endpoint)
+    2. DyanmoDB Streams (table changes)
+    3. Kinesis (streaming data)
+    4. S3 (bucket events)
+    5. SNS (topic messages)
+    6. Cognito (customizing workflows)
+
+
+
+- Packaging Lambda
+
+    Code
+    Dependencies    --->    zip/jar    --->    Lambda
+
+
+
+- Logging with Lambda
+
+    Lambda    --->    AWS CloudWatch Logs

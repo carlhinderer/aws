@@ -1,0 +1,112 @@
+Exercise 11
+
+
+In this exercise, you will create an AWS Lambda function to make the application a distributed system. 
+  This means that the photo labels being processed by Amazon Rekognition will now be processed in an 
+  asynchronous manner. To asynchronously process them, when a photo gets uploaded, an Amazon S3 bucket 
+  event notification triggers the AWS Lambda function, which talks to Amazon Rekognition to process the 
+  photo labels.
+
+Note: Make sure to sign-in to your AWS account with the AWS IAM user edXProjectUser credentials.
+
+To begin, follow the steps below.
+
+
+1. Start the Amazon RDS database instance.
+
+    > In the AWS Console, click Services, then click Relational Database Service to open the Amazon RDS 
+        dashboard.
+
+    > In the left navigation pane, click Instances. From the list of instances, select edx-photos-db.
+    
+    > At the top, click Instance actions, and then click Start.
+
+
+2. Create a NAT instance via AWS CloudFormation to allow internet access to the AWS Lambda function.
+
+     In this section, you will create a NAT instance by updating the AWS CloudFormation stack 
+       edx-vpc-stack. By creating a NAT instance, you are ensuring that the AWS Lambda function has 
+       internet access so that it can execute. While creating the AWS Lambda function, you placed the 
+       function in the edx-build-aws-vpc network. This caused the AWS Lambda function to lose default 
+       internet access. Since you need external internet access for the function to execute and communicate 
+       with Amazon Rekognition and your Amazon RDS database, you need to ensure that the edx-build-aws-vpc 
+       network has a NAT instance. In the third exercise, you created an AWS CloudFormation stack, 
+       edx-vpc-stack, which created the edx-build-aws-vpc network and the subnets. In this section, you 
+       will update the stack to create the NAT instance.
+
+     > Download the AWS CloudFormation template to create the NAT instance. Save it locally on your 
+         computer.
+
+     > In the AWS Console, click Services, then click CloudFormation to open the AWS CloudFormation 
+         dashboard.
+
+     > Make sure you are still in the Oregon region.
+     > Click the check box against edx-vpc-stack from the list of stacks.
+     > Click Actions -> Update Stack at the top.
+     > Click Choose file to select the AWS CloudFormation template you just downloaded.
+     > Click Next.
+     > For KeyName, select the key pair you created in the third exercise.
+     > Click Next.
+     > Skip the Options page and click Next.
+     > On the Review page, scroll down and click Update.
+
+     > You will notice that the status of the template is UPDATE_IN_PROGRESS. The template should finish 
+         updating in a minute.
+
+     > After you see the status as UPDATE_COMPLETE, open the Amazon EC2 dashboard.
+    
+     > Click Instances in the left navigation menu. You can view the status of the NAT instance, 
+         edx-nat-instance. Make sure that your instance has passed its status checks. You can view this 
+         information in the Status Checks column.
+
+       Note: It takes a few minutes for the status checks to pass.
+
+
+3. Create an AWS IAM role for the AWS Lambda function.
+
+     In this section, you will create an AWS IAM role to authenticate the AWS Lambda function to talk to 
+       Amazon Rekognition and Amazon S3. If you are familiar with AWS IAM roles, you may want to attempt 
+       to complete this section before reading the step-by-step instructions.
+
+     > Trusted entity: Lambda
+     > Permissions: AWSLambdaVPCAccessExecutionRole, 
+                    AmazonRekognitionReadOnlyAccess, 
+                    AmazonS3ReadOnlyAccess
+     > Role name: labels-lambda-role
+
+
+4. Create a security group in edx-build-aws-vpc for the AWS Lambda function.
+
+     In this section, you will create a security group for the AWS Lambda function in edx-build-aws-vpc. 
+       The security group for the AWS Lambda function has no inbound rules; it only has outbound rules. 
+       You will later reference the security group to allow AWS Lambda access to the database. If you are 
+       familiar with security groups, you may want to attempt to complete this section before reading the
+       step-by-step instructions.
+
+     > Services > EC2 > NETWORK & SECURITY > Security Groups
+     > Security group name: labels-lambda-sg
+     > Region: Oregon (us-west-2)
+     > VPC: edx-build-aws-vpc
+
+
+5. Modify the security group of the Amazon RDS database instance.
+
+     In this section, you will modify the security group of the Amazon RDS database instance to allow it
+       to communicate with the AWS Lambda function. Follow the steps below.
+
+     > In the AWS Console, click Services, then click Relational Database Service to open the Amazon RDS 
+         dashboard.
+
+     > On the left navigation menu, click Instances and select edx-photos-db.
+     > Scroll down to the Details section.
+    
+     > Under Security and network, click the security group. The security group should have a name 
+         like rds-launch-wizard-xxx. A new page displaying the security group you just clicked should 
+         appear.
+    
+     > On the bottom pane, click Inbound.
+     > Click Edit.
+     > Click Add Rule.
+     > For Type, select MYSQL/Aurora.
+     > In the Source textbox, type labels-lambda-sg and select the security group that is displayed.
+     > Click Save.
