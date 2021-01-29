@@ -1,0 +1,70 @@
+-----------------------------------------------------------------------
+|  AWS DEVELOPER: BUILDING ON AWS - WEEK 5                            |
+-----------------------------------------------------------------------
+
+- AWS X-Ray
+
+    - Collects tracing data
+    - Identiy issues, errors, performance
+
+    - Traces
+        - AWS resources
+        - databases
+        - Web APIs
+
+    - Flow
+
+        Application      UDP     X-Ray
+          - X-Ray SDK   ---->    daemon    ----> X-Ray API
+
+
+
+- X-Ray Service Graph Example
+
+                                 Database: SQL
+                            /        (5 ms)
+     --->   EC2 instance   /
+              (200 ms)     \
+                            \     
+                                     AWS:S3
+                                    (130 ms)
+
+
+
+- AWS X-Ray SDK for Python
+
+    - Django, Flask
+    - boto3
+    - requests
+    - sqlite3, mysql-connector
+
+
+
+- AWS X-Ray Traces
+
+    - Composed of
+        - Segments
+        - Subsegments
+        - Annotations/Metadata
+
+
+
+- Code Example - Using Xray
+
+    import boto3
+    import requests
+    from aws_xray_sdk.core import xray_recorder, patch_all
+
+    @xray_recorder.capture()      # Automatically wraps function into subsegment
+    def list_my_buckets():
+        s3 = boto3.client('s3')
+        response = s3.list_buckets()
+        reqeuests.get('https://aws.amazon.com/')
+
+    xray_recorder.configure(service='S3Demo')
+    patch_all()
+
+    segment = xray_recorder.begin_segment()
+    segment.put_annotation('User', 'Superuser')        # Will be able to query by this attribute
+    list_my_buckets()
+    xray_recorder.end_segment()
