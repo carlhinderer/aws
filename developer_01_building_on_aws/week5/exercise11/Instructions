@@ -110,3 +110,154 @@ To begin, follow the steps below.
      > For Type, select MYSQL/Aurora.
      > In the Source textbox, type labels-lambda-sg and select the security group that is displayed.
      > Click Save.
+
+
+6. Create a placeholder AWS Lambda function.
+
+     In this section, you will create a placeholder AWS Lambda function. This AWS Lambda function will 
+       later be updated with the exercise code. If you are familiar with AWS Lambda, you may want to 
+       attempt to complete this section before reading the step-by-step instructions.
+
+     > Services > Lambda > Create a function
+
+     > Region: Oregon (us-west-2)
+     > Name: labels-lambda
+     > Runtime: Python3.6
+     > Role: labels-lambda-role
+     > Network: edx-build-aws-vpc
+     > Subnets: Select the two private subnets in edx-build-aws-vpc.
+     > Security group: labels-lambda-sg
+     > Sample function code: print("Hello")
+
+
+7. Test the placeholder AWS Lambda function by simulating an Amazon S3 event.
+
+     In the AWS Console, go the Lambda dashboard, click Functions on the left navigation menu, and select 
+       the AWS Lambda function you just created.
+
+     > Click Test at the top right corner.
+     > On the Configure test event page, for Event template, select S3 Put.
+     > For Event name, type a name for the event.
+     > Scroll to the bottom and click Create.
+
+     > On the AWS Lambda page, at the top right corner, click Test. You should see that the function 
+         is being executed.
+
+     > After the AWS Lambda function has successfully executed, under Execution result: succeeded(logs), 
+         expand the Details section.
+
+     > In the Log Output, you should see the Hello message you printed in the AWS Lambda function.
+
+
+8. Download and explore the exercise code.
+
+     > Type the command below in your AWS Cloud9 terminal to make sure you are in the ~/environment 
+         directory of your AWS Cloud9 instance.
+
+         $ cd ~/environment
+
+     > In your AWS Cloud9 environment, download the exercise code by typing the command below in the 
+         terminal.
+
+         $ wget https://us-west-2-tcdev.s3.amazonaws.com/courses/AWS-100-ADG/v1.1.0/exercises/ex-lambda.zip
+
+     > Unzip the exercise code .zip file by typing the command below in your AWS Cloud9 terminal.
+
+         $ unzip ex-lambda.zip
+
+      The contents of the .zip file should be extracted to a folder with similar name. You can view the 
+        folder on the left tree view.
+
+     > Open the exercise-lambda/LambdaImageLabels/lambda_function.py file.
+
+       Notice that the Amazon Rekognition code for processing the photo labels has been removed from the
+         application.py file to the lambda_function.py file. This means that the photo labels are now 
+         being processed asynchronously by the AWS Lambda function.
+
+     > In the exercise-lambda/FlaskApp/application.py file, scroll down to the myphotos route and notice 
+        that the all_labels variable now displays a message, Processing labels asynchronously. This message 
+        will be displayed on the GUI until the labels are being processed and returned back by the AWS 
+        Lambda function.
+
+
+9. Test the AWS Lambda function locally in your AWS Cloud9 environment.
+
+     > Open the exercise-lambda/LambdaImageLabels/lambda_function.py file.
+
+     > Search for the fake_s3_event variable in the file. You will notice a JSON snippet simulating an 
+         Amazon S3 event.
+    
+     > In the JSON snippet, replace fake_bucket with the name of your Amazon S3 bucket name that stores 
+         the application photos. For more information, refer the screenshot below the next instruction.
+
+     > In the AWS Console, open the Amazon S3 dashboard, select your photos Amazon S3 bucket, copy the 
+         object key of a photo, and paste it the JSON snippet against key. For more information, refer to 
+         the screenshot below.
+
+     > Save the lambda_function.py file.
+
+     > To run the AWS Lambda function locally, point the Run Configuration to the correct exercise 
+         folder. On Python3RunConfiguration pane at the bottom, type the text shown below in the Command 
+         textbox and click Run.
+
+         exercise-lambda/LambdaImageLabels/lambda_function.py
+
+     > You should see a message similar to below:
+
+         Received event. Bucket: [photosbucket], Key: [photos/4369c8f6e689306c.png]
+         Detect_labels finished. Key: [photos/4369c8f6e689306c.png], Labels: [File, Webpage, Text, Page,
+           Landscape, Nature, Outdoors, Scenery, Label, Diagram, Map]
+
+       This means that the AWS Lambda function has executed successfully.
+
+
+10. Package the libraries needed for the AWS Lambda function and update the AWS Lambda function.
+
+      In this section, you will package the AWS Lambda function along with the MySQL connector libraries 
+        AWS Lambda needs to execute successfully.
+
+      > Type the command below in your AWS Cloud9 terminal to make sure you are in the ~/environment 
+          directory of your AWS Cloud9 instance.
+
+          $ cd ~/environment
+
+     > In your AWS Cloud9 environment, create a folder called libraries by typing the command below.
+
+          $ mkdir libraries
+
+     > To include the SQL connector libraries, type the command below.
+
+          $ pip-3.6 install 'mysql_connector_python<8.1' -t libraries
+
+     > Change your working directory to the Libraries folder by typing the command below.
+
+          $ cd libraries/
+
+     > Create a .zip file named lambda.zip and zip the MySql connector libraries by typing the command 
+         below.
+
+         $ zip -r ~/environment/lambda.zip *
+
+     > To include the AWS Lambda function code files in the lambda.zip file, change the directory to the 
+         exercise folder by typing the command below.
+
+         $ cd ~/environment/exercise-lambda/LambdaImageLabels/
+
+     > Zip the AWS Lambda function code files in the lambda.zip file by typing the command below.
+
+         $ zip ~/environment/lambda.zip *.py
+
+       The lambda.zip file is now ready with the code and its dependency libraries.
+
+     > Change your working directory to the ~/environment folder by typing the command below.
+
+         $ cd ~/environment
+
+     > Using the AWS CLI command below, update the AWS Lambda function you created in an earlier section
+         of this exercise with the function code.
+
+         $ aws lambda update-function-code --function-name labels-lambda --zip-file fileb://lambda.zip
+
+     > Upon executing the AWS CLI command, you should see a JSON output with the information of the AWS 
+         Lambda function. This means that the function has been successfully updated with the Python code 
+         and libraries.
