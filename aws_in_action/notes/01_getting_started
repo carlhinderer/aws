@@ -1,0 +1,202 @@
+-----------------------------------------------------------------------------
+| CHAPTER 1 - GETTING STARTED                                               |
+-----------------------------------------------------------------------------
+
+- AWS
+
+    - AWS is a platform of web services that offers solutions for computing, storing, and networking,
+        at different layers of abstraction.
+
+      For instance, you can use block-level storage (low level of abstraction) or highly distributed
+        object storage (high level of abstraction).
+
+
+    - The pricing model for services is pay-per-use.
+
+
+
+- Cloud Computing
+
+    - Public Cloud = managed by an organization and open to general public (like AWS)
+
+      Private Cloud = cloud that virtualizes and distributes IT infrastructure for an organization
+
+      Hybrid Cloud = Mixture of public and private cloud
+
+
+    - Cloud computing service classifications:
+
+        IaaS = fundamental resources like computing, storage, networking
+                 (ie EC2)
+
+        PaaS = platform to deploy custom applications to the cloud
+                 (ie AWS Elastic Beanstalk, Google App Engine, Heroku)
+
+        SaaS = combines infrastructure and software running in the cloud
+                 (ie Google Docs)
+
+
+
+- AWS Example #1 - Medium-Sized E-Commerce Business
+
+    - Started by renting machines in data center and running applications on them, switches to AWS
+    - Use CDN to serve static content to take load off of web servers
+    - Switches to maintenance-free services for database, object store, DNS, decreases operational cost
+    - Uses VMs and a load balancer to increase reliability
+
+
+
+- AWS Example #2 - Running a Java EE Application in you Private Network
+
+    - Moves corporate business applications to AWS after data center hosting contract expires
+    - Defines VPN in the cloud
+    - Installs application servers to run Java EE application
+    - Uses Oracle database service, database is only available from EE application's subnet
+    - Uses subnets to separate systems with different security levels from each other
+    - Uses ACLs to restrict traffic to authorized users
+    - Controls traffic to internet using NAT and firewall rules
+
+
+
+- AWS Example #3 - Implementing a Highly Available System
+
+    - Startup uses AWS to prevent costly outages
+    - Use replication and automatic failover for database
+    - All services on AWS are highly available
+    - Load balancer and VMs for web servers spread across data centers
+
+
+
+- AWS Example #4 - Batch Processing Infrastructure
+
+    - Data scientist needs to process massive amounts of measurement data collected from gas turbines
+    - Needs to generate a report once a day containing maintenance condition of hundreds of turbines
+    - Batch jobs are run on schedule and store aggregated results in a database
+    - BI tool is used to generate reports based on data stored in the database
+    - Spin up VMs when you need them, then just delete them
+
+
+
+- Benefits of Using AWS
+
+    - Innovative and fast-growing platform
+    - Services solve common problems
+    - Enabling automation since everything has an API, infrastructure as code
+    - Flexible capacity and elastic scalability
+    - High availability and fault tolerance
+    - Reduce time to market
+    - Benefit from economies of scale
+    - Global infrastructure
+    - Professional partner
+
+
+
+- Billing
+
+    - Calculate the monthly cost of a planned setup:
+
+        http://aws.amazon.com/calculator
+
+
+    - See what's included in free tier at:
+
+        http://aws.amazon.com/free
+
+
+
+- List of Services in This Book
+
+     EC2 - Virtual machines
+     ELB - Load balancers
+     Lambda - Executing functions
+     Elastic Beanstalk - Deploying web applications
+     S3 - Object store
+     EFS - Network filesystem
+     Glacier - Archiving data
+     RDS - SQL databases
+     DynamoDB - NoSQL database
+     ElastiCache - In-memory key-value store
+     VPC - Private network
+     CloudWatch - Monitoring and logging
+     CloudFormation - Automating your infrastructure
+     OpsWorks - Deploying web applications
+     IAM - Restricting access to your cloud resources
+     Simple Queue Service - Distributed queues
+
+
+    - Note that continuous delivery, Docker containers, big data, and machine learning are not 
+        covered.  Each could fill their own book.
+
+
+
+- Interacting with AWS
+
+    - AWS Management Console
+
+        - Manage and access services through a GUI
+        - Good way to set up cloud infrastructure for development and testing
+
+
+    - CLI
+
+        - Access API from terminal
+        - Useful for automating things like CI
+
+
+    - SDKs
+
+        - Access API from programming languages
+        - Integrate AWS services into applications
+
+
+    - Blueprints
+
+        - Declarative description of all resources and their dependencies
+        - Infrastructure as Code
+
+
+
+- Creating a Key Pair
+
+    - A key pair consists of a private and public key.
+
+        - The public key will be uploaded to AWS and injected into the virtual machine.
+
+        - The private key is yours.  Protect it like a password and don't lose it - you can't retrieve it.
+
+
+    - We'll use the 'US East (N. Virginia)' region for all exercises in this book.
+
+
+    - To create a key pair:
+
+        > Services > EC2
+          > Key Pairs
+          > Create Key Pair
+
+              Name: mykey
+
+      You'll download a file named 'mykey.pem' during the process.
+
+
+    - Note that you can use a public key from a key pair you create yourself if you want to use an
+        existing key or are very paranoid about Amazon having your key for a few seconds.
+
+
+    - To use the key file, we need to change access rights so that only we can read the file.
+
+        $ chmod 400 mykey.pem
+
+
+
+- Creating a Billing Alarm
+
+    - We'll create a billing alarm that alerts us if our montly usage charges exceed $5.
+
+        > My Billing Dashboard
+          > Preferences
+          > Receive Billing Alerts Checkbox
+          > Save Preferences
+
+        > Services > CloudWatch
+          > Create Billing Alarm
