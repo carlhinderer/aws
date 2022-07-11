@@ -261,3 +261,117 @@ To begin, follow the steps below.
      > Upon executing the AWS CLI command, you should see a JSON output with the information of the AWS 
          Lambda function. This means that the function has been successfully updated with the Python code 
          and libraries.
+
+
+11. Configure the AWS Lambda function with the Amazon RDS database environment variables.
+
+      > In the AWS Console, click Services, then click Lambda to open the Lambda dashboard.
+      > Click Functions in the left navigation menu.
+      > Click the AWS Lambda Function you updated in the previous section.
+      > Scroll down to the Environment variables section.
+
+      > Configure the Amazon RDS database environment variables in the Key and Value text boxes in 
+          the Environment variables section. Refer to the table below.
+
+        Key                  Value
+        ---------------------------------------------------------------------
+        DATABASE_HOST        Database endpoint of the Amazon RDS database
+
+        DATABASE_USER        web_user
+
+        DATABASE_PASSWORD    Password for the web_user you noted earlier
+
+        DATABASE_DB_NAME     Photos
+
+      > Click Save at the top right corner.
+
+
+12. Test the AWS Lambda function by simulating an Amazon S3 event.
+
+      > In your AWS Cloud9 environment, open the lambda_function.py file and scroll down to the 
+          fake_s3_event JSON snippet.
+
+      > This JSON snippet is pointing to the Amazon S3 photos bucket of your application and an object 
+          key for one of the photos stored in that bucket.
+
+      > Copy the entire fake_s3_event JSON snippet as highlighted in the screenshot below.
+
+      > In the AWS Console, open the Lambda dashboard and click Functions in the left navigation menu.
+      > Click the AWS Lambda function that you updated in a previous section.
+      > Click the drop-down list next to the Test button at the top right corner.
+      > Click Configure test events.
+      > Leave the default selection as Edit saved test events.
+
+      > Replace the JSON code you see on your screen with the fake_s3_event JSON snippet you copied 
+          earlier from the lambda_function.py file.
+
+      > Scroll to the bottom and click Save.
+      > Click Test at the top right corner.
+      > Upon successful execution, expand the Details section. You should see a log output similar to 
+          the example below.
+
+          START RequestId: bb62e964-02c3-11e8-9883-1da37a524b85 Version: $LATEST
+          Received event. Bucket: [photosbucket], Key: [photos/4369c8f6e689306c.png]
+          Detect_labels finished. Key: [photos/4369c8f6e689306c.png], Labels: [File, Webpage, Text, 
+          Page, Landscape, Nature, Outdoors, Scenery, Label, Diagram, Map]
+          Updating key:[photos/4369c8f6e689306c.png] with labels:[File, Webpage, Text, Page, Landscape, 
+          Nature, Outdoors, Scenery, Label, Diagram, Map]
+
+      > You are now ready to test your AWS Lambda function in the application.
+
+
+13. Configure the photos Amazon S3 bucket to trigger the AWS Lambda function.
+
+      In this section, you will configure your photos Amazon S3 bucket to trigger the AWS Lambda 
+        function whenever a new photo is uploaded. To configure, follow the steps below.
+
+      > In the AWS Console, open the Amazon S3 dashboard.
+      > From the list of buckets, select the bucket where your application photos are uploaded.
+      > Click Properties tab.
+      > Scroll down to Advanced settings and click Events.
+      > Click Add notification.
+      > For Events, select ObjectCreate (All).
+      > For Send to, select Lambda Function.
+      > For Lambda, select the AWS Lambda function you created in this exercise.
+      > Click Save.
+
+      Your Amazon S3 bucket will now trigger the AWS Lambda function to execute as soon as a photo gets 
+        uploaded to the bucket.
+
+
+14. Test the application.
+
+    To run the code, you will need to point the Run Configuration to the correct exercise folder. In the Python3RunConfiguration pane at the bottom, type the text shown below in the Command textbox and click Run.
+
+    exercise-lambda/FlaskApp/application.py
+
+    You should see a message like the one below:
+
+    Running on http://0.0.0.0:8080/
+    To test the application, click Preview -> Preview Running Application on the top menu bar of the Cloud9 environment.
+    Pop out the application in a new window by clicking the Pop Out button.
+    Log in to the application and upload a photo.
+    As soon as the photo is uploaded, you should see a label, Processing labels asynchronously, below the photo. This means that the labels are being processed by the AWS Lambda function.
+    Click My photos in the top right corner. You should now see the labels populated in the table against the photo you just uploaded.
+    Note: This might take a few attempts as you are waiting for AWS Lambda function to start executing.
+
+
+Optional Challenge
+
+The code supplied doesn't have any X-Ray tracing. Add to the Lambda function the code for the xray_recorder, and to patch libraries. Deploy the updated code to Lambda and enable active tracing. For more information, see Emitting Trace Segments from a Lambda Function. You will now see traces appear in the X-Ray console for your Lambda function invocations. Your Lambda function role will need AWSXrayWriteOnlyAccess permissions to access X-Ray.
+15. Stop the NAT instance.
+
+In order to keep your AWS account bill to a minimum, stop the NAT instance by following the steps below.
+
+    In the AWS Console, click Services, then click EC2 to open the Amazon EC2 dashboard.
+    In the navigation pane, click Instances. In the list of instances, select edx-nat-instance.
+    Click Actions, then Instance State, and then Stop.
+
+
+16. Stop the Amazon RDS database instance.
+
+In order to keep your AWS account bill to a minimum, stop the Amazon RDS instance by following the steps below.
+
+    In the AWS Console, open the Amazon RDS dashboard.
+    In the left navigation pane, click Instances. From the list of instances, select edx-photos-db.
+    At the top, click Instance actions, and then click Stop. You will get a prompt. Click Yes, stop now.
