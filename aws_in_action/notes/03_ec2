@@ -1,0 +1,259 @@
+-----------------------------------------------------------------------------
+| CHAPTER 3 - USING VIRTUAL MACHINES                                        |
+-----------------------------------------------------------------------------
+
+- Different Types of VMs Available
+
+    - A 'virtual applicance' is an image of a VM containing an OS and some preconfigured software.  An
+        AMI is a special type virtual appliance used only with EC2.
+
+      AWS uses Xen, an open-source hypervisor.
+
+
+    - Here are the different types of VMs available:
+
+        T family  # Cheap, moderate baseline performance with the ability to burst for short periods
+      
+        M family  # General purpose, with a balanced ration of CPU and memory
+
+      C family  # Computing optimized, high CPU performance
+
+      R family  # Memory optimized, with more memory than CPU power compared to M family
+
+      D family  # Storage optimized, offering huge HDD capacity
+
+      I family  # Storage optimized, offering huge SSD capacity
+
+      X family  # Extensive capacity with a focus on memory, up to 1952 GB memory and 128 virtual cores
+
+      F family  # Accelerated computing based on FPGAs (field programmable gate arrays)
+
+      P, G, and CG family  # Accelerated computing based on GPUs (graphics processing units
+
+
+    - Amazon Linux is a distro based on RHEL.
+
+
+
+- Launching a VM
+
+    - VM Architecture
+
+        Guest1    Guest2    ...
+            HYPERVISOR
+           HOST MACHINE
+
+
+    - To launch a VM:
+
+        > Services: EC2
+          > Launch
+
+          Name: mymachine
+          AMI: Ubuntu Server
+          Instance Type: t2.micro
+          Instance Details: Defaults
+          Add Storage: Defaults
+          Add Tags: Key: Name, Value: mymachine
+
+          New Security Group
+            Name: ssh-only
+            Keep default rule allowsing ssh from anywhere
+
+          Key Pair: mykey
+
+
+    - 3 Reasons to Tag Your Resources:
+
+        1. Filter and search for resources
+        2. Analyze and organize billing
+        3. Restrict access based on tags
+
+
+
+- Connecting to Your VM
+
+    - To log into the VM, we need to figure out it's public domain name.
+
+        > Select instance in EC2 Dashboard
+          > Click 'Connect' button for instructions on connecting to VM
+          > Get Public DNS
+
+
+    - To ssh into the VM:
+
+        $  ssh -i "mykey.pem" ubuntu@public-dns-name
+
+      Answer 'yes' to the alert about authenticity of the host.
+
+
+    - We'll install and run the 'linechecker' tool, which lets you find broken links on a website.
+
+        # Install linechecker
+        $ sudo apt-get update
+        $ sudo apt-get install linkchecker -y
+
+        # Use linechecker (pick a website)
+        $ linkchecker https://...
+
+
+
+- Monitoring and Debugging a VM
+
+    - To view an EC2 instance's logs:
+
+        > EC2 Instance
+          > Actions
+            > Monitor and Troubleshoot
+              > Get System Log
+
+
+    - To monitor the load of a VM:
+
+        > EC2 Instance
+          > Monitoring
+            > Network
+
+
+
+- Shutting Down a VM
+
+    - VM Commands:
+
+        Start        # Start a stopped VM
+        Stop         # Stop a VM, can be restarted on different host, data persists on NAS
+        Reboot       # Reboot VM, stays on same host with same data
+        Terminate    # Delete the VM completely
+
+
+
+- Changing the Size of a VM
+
+    - First, you need to stop the running VM.  Then, you can change the Instance Type.
+
+        > Instance Settings
+          > Change Instance Type: t2.micro -> m4.large
+
+
+    - To view the specs on your new machine:
+
+        $ cat /proc/cpuinfo
+        $ free -m
+
+
+
+- Starting a VM in Another Data Center
+
+    - Things to think about when picking a region for your infrastructure:
+
+        - What region offers the lowest latency to my users?
+        - Am I allowed to store and process data in this country?
+        - Which AWS services are offered in this region?
+        - What is the most cost-effective region for my infrastructure?
+
+
+    - Regions like 'US East (N. Virginia)' are independent of each other, data isn't transferred 
+        between regions.
+
+      A region is a collection of 3 or more data centers located in the same area.  They are 
+        well-connected to each other and offer the ability to build a highly available infrastructure.
+
+
+    - Some AWS services, like CDN and DNS, act globally on top of those regions and even on top of some
+        additional data centers.
+
+    - You'll need a new key pair for each region you want to create infrastructure in.
+
+
+
+- Allocating a Public IP Address
+
+    - Each of the VM's we've launched so far was given a public IP address automatically.  However,
+        each time we stopped and restarted the VM, the public IP changed.
+
+      If you want to host an application under a fixed IP address, AWS offers a service called 
+        Elastic IPs.  You can allocate a public IP address and associate it with an EC2 instance.
+
+
+    - To allocate a new public IP address:
+
+        > Services: EC2
+          > Elastic IPs
+            > Allocate New Address
+
+
+    - To associate the public IP address with a VM:
+
+        > Select IP Address
+          > Associate Address
+            > Enter EC2 instance id
+
+
+    - Allocating a public IP address can be useful if you want to make sure the endpoint to your
+        application doesn't change, even if you have to replace the VM behind the scenes.
+
+    - IPv4 addresses are scarce.  To prevent people from stockpiling them, AWS will change you for
+        addresses that aren't associated with any VM.  We'll clean up the allocated addresses.
+
+
+
+- Adding an Additional Network Interface to a VM
+
+    - You can also control a VM's network interfaces.  Here are typical use cases for VMs with multiple
+        network interfaces:
+
+        1. Your web server needs to answer requests by using multiple TLS/SSL certificates, and you
+             can't use SNI due to legacy clients.
+
+        2. You want to create a management network separate from the application network.
+
+        3. Your application requires the use of multiple NIC's (ie a network application).
+
+
+    - To add another network interface to our VM:
+
+        > EC2 Instance
+          > Network Interfaces
+            > Create
+
+
+    - Then, we can go back to our public IP address, and associate it to the new network interface:
+
+        > Public IP address
+          > Associate Address
+
+            Resource Type: Network interface
+            Newtork Interface: New-interface-id
+            Private IP: Private IP for VM
+
+
+    - We'll clean up the resources used here:
+
+        1. Terminate the VM
+        2. Delete the networking interface
+        3. Release public IP addresses
+        4. Delete webserver security group that was created
+
+
+
+- Optimizing Costs for VMs
+
+    - Typically you launch instances when you need them on-demand (these are called 'on-demand-instances').
+        There are 2 options to reduce EC2 costs:
+
+        1. Spot Instances = You bid for unused capacity in a data center
+
+        2. Reserved Instances = Get a discount if you need a VM for a year or longer
+                                  (You have to pay if it's running or not)
+
+
+    - To reserve instances:
+
+        > Services: EC2
+          > Reserved Instances
+
+
+    - To bid on spot instances:
+
+        > Services: EC2
+          > Spot Instances
