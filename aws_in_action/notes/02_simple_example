@@ -1,0 +1,128 @@
+-----------------------------------------------------------------------------
+| CHAPTER 2 - SIMPLE WORDPRESS EXAMPLE                                      |
+-----------------------------------------------------------------------------
+
+- Infrastructure We Will Use
+
+    1. Elastic Load Balancing = load balance requests to VMs
+    2. EC2 (Elastic Compute Cloud) = VMs
+    3. RDS = for MySQL instance
+    4. Elastic File System = user uploads like images
+    5. Security groups = control ingoing and outgoing traffic to VM, DB, load balancer with firewall
+
+
+
+- CloudFormation
+
+    - Instead of installing each of these things manually, we'll use a CloudFormation template.  It 
+        will:
+
+        1. Create a load balancer (ELB)
+        2. Create a MySQL database (RDS)
+        3. Create a network filesystem (EFS)
+        4. Create and attach firewall rules (security groups)
+
+        5. Create 2 virtual machines running web servers:
+
+            A. Create 2 VMs (EC2)
+            B. Mount the network filesystem
+            C. Install Apache and PHP
+            D. Download and extract Wordpress
+            E. Configure WordPress to use the created MySQL database
+            F. Start the Apache web server
+
+
+
+- Using the CloudFormation Template
+
+    - Navigate to:
+
+        > Services > CloudFormation
+          > Create a Stack
+
+          > Stack name: wordpress
+
+          > Specify an Amazon S3 template URL:
+              https://s3.amazonaws.com/awsinaction-code2/chapter02/template.yaml
+
+          > Key Name: mykey
+
+          > Tags:
+              Name: system, Value: wordpress
+
+
+    - Click 'Estimate Cost' to get our monthly cost estimate for running the stack ($34.24).
+
+
+    - Then, click 'Create' to create the stack.  After about 5 minutes, you'll see the stack has been
+        created.  In the 'Outputs' tab, we'll see the link to our new WordPress instance.
+
+
+
+- Exploring Our Infrastructure
+
+    - A 'resource group' is a collection of AWS resources.  A resource is an abstract term for anything
+        like a VM, security group, or database.
+
+      Resources can be tagged with key/value pairs, and resource groups specify which tags are needed
+        for a resource to belong to the group.  They also specify which regions a resource must reside
+        in.
+
+
+    - We'll create a new resource group for our WordPress infrastructure:
+
+        > Services: AWS Resource Groups
+          > Create New Resource Group
+
+            Group Name: wordpress
+            Tags: Name: system, Value: wordpress
+
+
+    - We can click on one of the VMs in our resource group, and we'll see some details:
+
+        > Services: EC2
+
+        Instance Type
+        IPv4 = IP reachable over the internet, can be used to SSH into VM
+        Security Groups = All Rules
+
+
+    - The new AWS load balancer is called 'Application Load Balancer'.  The legacy one (still used as
+        of this book) is called 'Elastic Load Balancer'.  We can see some load balancer details:
+
+        > Services: EC2
+          > Load Balancers
+
+        DNS = DNS name to reach load balancer
+        Scheme = whether the load balancer is internet-facing
+
+
+    - We use a simple MySQL instance for the WordPress database with 1 CPU, 1 GB RAM, and magnetic disk.
+        WordPress is a CMS that stores the blog posts and other data in the database.
+
+        > Services: RDS
+
+
+    - The Elastic File Service (EFS) is used to store files and access them from multiple VMs.  EFS is
+        a storage service accessible through the NFS protocol.
+
+      For simplicity's sake, all files that belong to WordPress are stored on EFS, including PHP, HTML,
+        CSS, and PNG.
+
+        > Services: File Systems
+
+
+
+- How Much Does It Cost?
+
+    - Our cost estimate was low, since it didn't include the Load Balancer in the price.  Actually,
+        hosting this site would be more like $70 a month.
+
+
+
+- Deleting Our Infrastructure
+
+    - Since this was just a demo, we'll delete everything we just created.
+
+        > Services: CloudFormation
+          > Check Our Application -> Actions: Delete
