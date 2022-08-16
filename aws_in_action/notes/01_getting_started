@@ -106,22 +106,22 @@
 
 - List of Services in This Book
 
-     EC2 - Virtual machines
-     ELB - Load balancers
-     Lambda - Executing functions
-     Elastic Beanstalk - Deploying web applications
-     S3 - Object store
-     EFS - Network filesystem
-     Glacier - Archiving data
-     RDS - SQL databases
-     DynamoDB - NoSQL database
-     ElastiCache - In-memory key-value store
-     VPC - Private network
-     CloudWatch - Monitoring and logging
-     CloudFormation - Automating your infrastructure
-     OpsWorks - Deploying web applications
-     IAM - Restricting access to your cloud resources
-     Simple Queue Service - Distributed queues
+    EC2 - Virtual machines
+    ELB - Load balancers
+    Lambda - Executing functions
+    Elastic Beanstalk - Deploying web applications
+    S3 - Object store
+    EFS - Network filesystem
+    Glacier - Archiving data
+    RDS - SQL databases
+    DynamoDB - NoSQL database
+    ElastiCache - In-memory key-value store
+    VPC - Private network
+    CloudWatch - Monitoring and logging
+    CloudFormation - Automating your infrastructure
+    OpsWorks - Deploying web applications
+    IAM - Restricting access to your cloud resources
+    Simple Queue Service - Distributed queues
 
 
     - Note that continuous delivery, Docker containers, big data, and machine learning are not 

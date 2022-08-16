@@ -13,22 +13,22 @@
     - Here are the different types of VMs available:
 
         T family  # Cheap, moderate baseline performance with the ability to burst for short periods
-      
+
         M family  # General purpose, with a balanced ration of CPU and memory
 
-      C family  # Computing optimized, high CPU performance
+        C family  # Computing optimized, high CPU performance
 
-      R family  # Memory optimized, with more memory than CPU power compared to M family
+        R family  # Memory optimized, with more memory than CPU power compared to M family
 
-      D family  # Storage optimized, offering huge HDD capacity
+        D family  # Storage optimized, offering huge HDD capacity
 
-      I family  # Storage optimized, offering huge SSD capacity
+        I family  # Storage optimized, offering huge SSD capacity
 
-      X family  # Extensive capacity with a focus on memory, up to 1952 GB memory and 128 virtual cores
+        X family  # Extensive capacity with a focus on memory, up to 1952 GB memory and 128 virtual cores
 
-      F family  # Accelerated computing based on FPGAs (field programmable gate arrays)
+        F family  # Accelerated computing based on FPGAs (field programmable gate arrays)
 
-      P, G, and CG family  # Accelerated computing based on GPUs (graphics processing units
+        P, G, and CG family  # Accelerated computing based on GPUs
 
 
     - Amazon Linux is a distro based on RHEL.
