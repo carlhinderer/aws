@@ -1,0 +1,160 @@
+-----------------------------------------------------------------------------
+| CHAPTER 4 - PROGRAMMING YOUR INFRASTRUCTURE                               |
+-----------------------------------------------------------------------------
+
+- The AWS HTTP API
+
+   - AWS provides an API that can control every part of AWS over HTTP.  Calling the HTTP API is very
+       low-level and provides a lot of repetetive work (ie authentication, serialization, etc).
+       That's why AWS offers tools built on top of it:
+
+       1. CLI = make API calls from terminal
+       2. SDKs = make API calls from your PL
+       3. CloudFormation = templates that are translated into API calls
+
+
+    - Example HTTP Request to list contents of S3 bucket:
+
+       # Request
+       GET / HTTP/1.1
+       Host: BucketName.s3.amazonaws.com
+       Authorization: [...]
+
+       # Response
+       HTTP/1.1 200 OK
+       x-amz-id-2: [...]
+       x-amz-request-id: [...]
+       Date: Mon, 09 Feb 2015 10:32:16 GMT
+       Content-Type: application/xml
+
+       <?xml version="1.0" encoding="UTF-8"?>
+       <ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+       [...]
+       </ListBucketResult>
+
+
+
+- The DevOps Movement
+
+    - 'Infrastructure as Code' is the idea of using a high-level PL to control infrastructures.
+
+    - The DevOps movement aims to bring software development and operations together.  This is done
+        by either creating mixed teams of developers and operations or creating a new role that is
+        involved in both.
+
+    - It is possible to automate the entire release process so that each commit is automatically
+        released to production if tests are passed.
+
+
+
+- The JIML Infrastructure Language
+
+    - Let's imagine a simple language we create for defining infrastructure, based on JSON:
+
+        {
+          infrastructure: {
+            loadbalancer: {
+              vm: { ... }
+            },
+            cdn: { ... },
+            database: { ... },
+            dns: { ... },
+            static: { ... }
+          }
+        }
+
+
+    - To process this and turn it into API calls, we need to:
+
+        1. Parse the JSON
+        2. Create a dependency graph of the resources and their dependencies
+        3. Traverse the dependency graph from bottom (leaves) to top (root) to get a linear flow of commands
+        4. Translate commands into API calls
+
+
+
+- Installing and Configuring the CLI
+
+    - The CLI is a convenient way to use AWS from your terminal.  Installing it requires python and pip.
+
+        $ pip install awscli
+
+
+    - To use the API, we need to authenticate.  Until now, we've been using the root AWS account, which
+        has god powers and should not be used for infrastructure.
+
+      Instead, we'll create a new user.
+
+        > Services: IAM
+          > Add User
+            Username: mycli
+            Access Type: Programmatic Access
+
+            Permissions:
+              > Attach Existing Policies Directly
+              > Select the AdministratorAccess policy
+            
+            > Create
+
+
+    - Open your terminal and run the command to configure your client.  The answers to the questions
+        are on the new user creation screen.
+
+        $ aws configure
+
+        AWS Access Key ID [None]: GetFromUserCreatePage
+        AWS Secret Access Key [None]: GetFromUserCreatePage
+        Default region name [None]: us-east-1
+        Default output format [None]: json
+
+
+        # Test whether cli works as configured
+        $ aws ec2 describe-regions
+
+
+
+- Using the CLI
+
+    - To get a list of all running EC2 instances of type 't2.micro':
+
+        $ aws ec2 describe-instances --filters "Name=instance-type,Values=t2.micro"
+
+
+    - The format for cli commands is:
+
+        $ aws <service> <action> [--key value ...]
+
+
+    - To get help for a command:
+
+        # Show all available services
+        $ aws help
+
+        # Show all actions available for a service
+        $ aws <service> help
+
+        # Show all options available for a service action
+        $ aws <service> <action> help
+
+
+    - You can also use the '--query' option to filter results using a JSON-like syntax called JMESPath.
+
+        # Show all available AMIs
+        $ aws ec2 describe-images
+
+        # Show just the state of each AMI
+        $ aws ec2 describe-images --query "Images[*].State"
+        ["available", "available"]
+
+
+    - To run a bash script that contains cli commands:
+
+        # Add execute permissions to script
+        $ chmod +x virtualmachine.sh
+
+        $ ./virtualmachine.sh
+
+      The script will:
+        1. Create an EC2 instance
+        2. Connect to it via ssh
+        3. Terminate it when it's no longer needed

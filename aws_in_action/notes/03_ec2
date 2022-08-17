@@ -4,8 +4,9 @@
 
 - Different Types of VMs Available
 
-    - A 'virtual applicance' is an image of a VM containing an OS and some preconfigured software.  An
-        AMI is a special type virtual appliance used only with EC2.
+    - A 'virtual applicance' is an image of a VM containing an OS and some preconfigured software.  A VM
+        is an instance of a virtual appliance template.  An AMI is a special type virtual appliance used 
+        only with EC2.
 
       AWS uses Xen, an open-source hypervisor.
 
