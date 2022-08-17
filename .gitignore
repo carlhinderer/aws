@@ -14,7 +14,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# lib/  Adding this back in for node apps
 lib64/
 parts/
 sdist/
