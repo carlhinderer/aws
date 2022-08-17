@@ -158,3 +158,304 @@
         1. Create an EC2 instance
         2. Connect to it via ssh
         3. Terminate it when it's no longer needed
+
+
+
+- Programming with the SDK
+
+    - Most examples in this book are written in JavaScript, and run in the Node.js runtime environment.
+
+        # Run a script
+        $ node script.js
+
+
+    - We also created a simple program for multiple temporary EC2 instances using a text UI written in
+        JavaScript called 'nodecc'.
+
+        # Install dependencies
+        $ cd nodecc
+        $ npm install
+
+        # Run application
+        $ node index.js
+
+
+    - In the application, we use commands to:
+
+        1. List AMIs
+        2. List Subnets
+        3. List VMs
+        4. Create VM
+        5. Show VM
+        6. Terminate VM
+
+
+    - Note that the running application will automatically use our configured credentials, which are
+        stored in the ~/.aws directory.
+
+
+
+- The Python SDK
+
+    - We'll implement these same commands using Python.  Since we've already done the 'aws configure'
+        step, we're ready to use boto3.
+
+        $ pip install boto3
+
+
+
+- Using a Blueprint to Start a VM
+
+    - Here, we use 'blueprint' as a general term for infrastructure automation.  Blueprints used by
+        CloudFormation are called 'templates'.  Templates are written in XML or JSON.
+
+      CloudFormation is one of the most powerful tools for managing infrastructure on AWS.
+
+
+    - Benefits of using CloudFormation:
+
+        1. Consistent way to describe infrastructure on AWS
+
+        2. It can handle dependencies automatically
+
+        3. It's replicable
+
+        4. It's customizable
+
+        5. It's testable
+
+        6. It's updateable
+
+        7. It minimizes human failure
+
+        8. It's documentation for your infrastructure
+
+        9. It's free
+
+
+
+- Anatomy of a CloudFormation Template
+
+    - Basic Parts of CloudFormation Template
+
+        1. Format Version = template format version (only valid version is 2010-09-09)
+
+        2. Description = what is the template about?
+
+        3. Parameters = used to customize a template with values
+
+        4. Resources = smallest block you can describe (ie VM, load balancer, elastic IP address)
+
+        5. Outputs = return values from template (ie public name of ec2 instance)
+
+
+
+- Basic Template Structure
+
+    AWSTemplateFormatVersion: '2010-09-09'
+    Description: 'CloudFormation template structure'
+    Parameters:
+      # [...]
+    Resources:
+      # [...]
+    Outputs:
+      # [...]
+
+
+
+- Template Parameters
+
+    - A parameter has at least a name and a type.  It's a good idea to add a description also.  We'll
+        provide values for the parameters on the Stack Creation page in the console.
+
+
+    - CloudFormation Parameter Types
+
+        String
+        CommaDelimitedList       # List of strings
+
+        Number
+        List<Number>
+
+        AWS::EC2::AvailabilityZone::Name
+        List<AWS::EC2::AvailabilityZone::Name>
+
+        AWS::EC2::Image::Id
+        List<AWS::EC2::Image::Id>
+
+        AWS::EC2::Instance::Id
+        List<AWS::EC2::Instance::Id>
+
+        AWS::EC2::KeyPair::KeyName
+
+        AWS::EC2::SecurityGroup::Id
+        List<AWS::EC2::SecurityGroup::Id>
+
+        AWS::EC2::Subnet::Id
+        List<AWS::EC2::Subnet::Id>
+
+        AWS::EC2::Volume::Id
+        List<AWS::EC2::Volume::Id>
+
+        AWS::EC2::VPC::Id
+        List<AWS::EC2::VPC::Id>
+
+        AWS::Route53::HostedZone::Id
+        List<AWS::Route53::HostedZone::Id>
+
+
+    - CloudFormation Paramter Properties
+
+        Default
+        NoEcho
+        AllowedValues
+        AllowedPattern
+        MinLength, MaxLength
+        MinValue, MaxValue
+        ConstraintDescription
+
+
+    - Example of Parameter Section
+
+        Parameters:
+          KeyName:
+            Description: 'Key Pair name'
+            Type: 'AWS::EC2::KeyPair::KeyName'
+          NumberOfVirtualMachines:
+            Description: 'How many virtual machine do you like?'
+            Type: Number
+            Default: 1
+            MinValue: 1
+            MaxValue: 5
+          WordPressVersion:
+            Description: 'Which version of WordPress do you want?'
+            Type: String
+            AllowedValues: ['4.1.1', '4.0.1']
+
+
+
+- Template Resources
+
+    - A resource has at least a name, a type, and some properties.
+
+        Resources:
+          VM:                             # Name
+          Type: 'AWS::EC2::Instance'
+          Properties:
+            # [...]
+
+
+    - With properties defined:
+
+        Resources:
+          VM:
+            Type: 'AWS::EC2::Instance'
+            Properties:
+              ImageId: 'ami-6057e21a'
+              InstanceType: 't2.micro'
+              KeyName: mykey
+              NetworkInterfaces:
+                - AssociatePublicIpAddress: true
+              DeleteOnTermination: true
+              DeviceIndex: 0
+              GroupSet:
+                - 'sg-123456'
+              SubnetId: 'subnet-123456'
+
+
+    - The '!Ref NameOfSomething' command is used as a placeholder for what is referenced by name.
+        You can reference parameters and resources to create dependencies.
+
+
+
+- Template Outputs
+
+    - A template's output includes at least a name and a value, but adding a description is a good
+        idea as well.
+
+        Outputs:
+          NameOfOutput:
+            Value: '1'
+            Description: 'This output is always 1'
+
+
+    - Example of output:
+
+        Outputs:
+          ID:
+            Value: !Ref Server
+            Description: 'ID of the EC2 instance'
+          PublicName:
+            Value: !GetAtt 'Server.PublicDnsName'
+            Description: 'Public name of the EC2 instance'
+
+
+
+- Creating Templates
+
+    - Ways to create a CloudFormation Template:
+
+        1. Write one from scratch
+        2. Use the CloudFormation Designer, a graphical UI on AWS
+        3. Start with a default template from a public library
+        4. Use CloudFormer, which builds a template based on existing infrastructure
+        5. Get a template from a vendor
+
+
+    - Let's say you have a VM that needs to add more CPU power.  Using the CLI or SDK, we'd have to
+        terminate the existing VM and spin up a new one, then wait for it to be available.
+
+      By simply updating the template, the desired state will be created for us.
+
+
+    - A 'stack' is an instantiation of a template.
+
+
+
+- Creating Our First Template
+
+    - Example template located at:
+
+        'templates/virtualmachine.yaml'
+
+
+    - To create a new stack from the template:
+
+        > Services: CloudFormation
+          > Create Stack
+              Amazon S3 Template URL: 
+                https://s3.amazonaws.com/awsinaction-code2/chapter04/virtualmachine.yaml
+
+          > Specify Details
+              Name: server
+              InstanceType: t2.micro
+              KeyName: mykey
+              Subnet: first value in dropdown
+              VPC: first value in dropdown
+
+          > Options: Keep defaults
+
+          > Create
+
+
+
+- Modifying the VM Instance Type
+
+    - Now, we'll test mofifying the instance type or the VM we just created.
+
+        > Services: CloudFormation
+          > Update Stack
+            > Use current template
+
+            Change instance_type to 't2.small'
+
+          > Update
+
+
+
+- Cleaning Up
+
+    - Delete the stack.
+
+        > Services: CloudFormation
+          > Delete Stack
