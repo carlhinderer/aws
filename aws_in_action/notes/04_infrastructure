@@ -112,6 +112,9 @@
         $ aws ec2 describe-regions
 
 
+    - Note that the resulting credentials are stored in '~/.aws' on your local machine.
+
+
 
 - Using the CLI
 

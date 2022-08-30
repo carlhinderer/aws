@@ -46,11 +46,21 @@ class Ec2Client:
 if __name__ == '__main__':
     client = Ec2Client()
 
-    # client.list_my_images()
-    # client.list_my_subnets()
-    # client.list_my_vms()
+    print('Listing images...')
+    client.list_my_images()
+    print('------------------------------------\n')
 
-    # new_instance_id = client.create_vm()
-    # time.sleep(10)
-    # client.show_vm(new_instance_id)
-    # client.terminate_vm(new_instance_id)
+    print('Listing subnets...')
+    client.list_my_subnets()
+    print('------------------------------------\n')
+
+    print('Listing vms...')
+    client.list_my_vms()
+    print('------------------------------------\n')
+
+    print('Creating and terminating new instance...')
+    new_instance_id = client.create_vm()
+    time.sleep(10)
+    client.show_vm(new_instance_id)
+    client.terminate_vm(new_instance_id)
+    print('------------------------------------\n')

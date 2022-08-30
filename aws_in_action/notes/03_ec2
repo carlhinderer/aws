@@ -4,7 +4,7 @@
 
 - Different Types of VMs Available
 
-    - A 'virtual applicance' is an image of a VM containing an OS and some preconfigured software.  A VM
+    - A 'virtual appliance' is an image of a VM containing an OS and some preconfigured software.  A VM
         is an instance of a virtual appliance template.  An AMI is a special type virtual appliance used 
         only with EC2.
 
@@ -96,6 +96,14 @@
 
         # Use linechecker (pick a website)
         $ linkchecker https://...
+
+
+
+- Connecting to an Amazon Linux VM
+
+    - To ssh into the VM:
+
+        $ ssh -i "mykey.pem" ec2-user@public-dns-name
 
 
 
