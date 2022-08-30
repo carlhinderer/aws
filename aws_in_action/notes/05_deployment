@@ -1,0 +1,131 @@
+-----------------------------------------------------------------------------
+| CHAPTER 5 - AUTOMATING DEPLOYMENT                                         |
+-----------------------------------------------------------------------------
+
+- Deploying Applications in a Cloud Environment
+
+    - We'll look at 3 examples that don't require storage solutions in this chapter:
+
+        1. Deploying a VPN solution with AWS CloudFormation and a script that starts at the end of
+             the boot process.
+
+        2. Deploying a collaborative text editor with AWS Elastic Beanstalk, which support Node.js by
+             default.
+
+        3. Deploying an IRC web client and IRC server with AWS Ops Works.
+
+
+    - Automated deployment has replaced system admins maunally following installation scripts.  This
+        increases efficiency and decreases human error.
+
+
+
+- Comparing Deployment Tools
+
+    - The 3 ways to deploy an application which we will look at:
+
+        1. Create a VM and run a deployment script on startup with CloudFormation
+
+        2. Use Elastic Beanstalk to deploy a common web application
+
+        3. Use Ops Works to deploy a multilayer application
+
+
+    - The effort required to deploy an application using Elastic Beanstalk is low.  However, to benefit 
+        from this, you application must fit into the conventions of Elastic Beanstalk.  For instance,
+        the app must run on a supported runtime (PHP, Node, .NET, Java, Python, Ruby, Go, Docker).
+
+
+    - With Ops Works, you have more options.  For instance, you can deploy different layers on top of
+        each other.  You can also use a Chef recipe for customization.
+
+
+
+- Creating a VM and Running a Deployment Script on Startup with CloudFormation
+
+    - To go from a plain OS to a fully installed and configured VM, use these steps:
+
+        1. Start a plain VM with just the OS
+
+        2. Execute a script at the end of the boot process
+
+        3. Install and configure applications with the help of that script
+
+
+    - We'll use 'user data' to run the script on startup.  You can inject a small amount of user data
+        (< 16 KB) into every VM to customize them.  You specify this during VM creation, then can
+        query it later from the machine itself.
+
+
+    - Whenever you boot a VM from a supported AMI (Amazon Linux, Ubuntu AMI, etc), user data is executed
+        as a shell script at the end of the boot process.
+
+
+    - The user data is always accessible from the VM with a GET request to 
+        '169.254.169.254/latest/user-data'.  It is only accessible from the VM itself.
+
+
+
+- Deploying OpenSwan (A VPN Server to a VM)
+
+    - Let's say you're working over public WiFi, and you want to tunnel your traffic through a VPN
+        because unencrypted communication (ie HTTP instead of HTTPS) can be intercepted by an attacker.
+
+      Our VPN solution, OpenSwan, offers an IPSec-based tunnel that is easy to use.
+
+
+    - We'll deploy the VPN to a VM with the help of user data and a shell script.  This code is located 
+        in 'templates/openstack'.
+
+        1. We have a shell script, 'vpn-setup.sh', which configures OpenStack and the security settings
+             on our VM.
+
+
+        2. We have a CloudFormation template, 'vpn-cloudformation.yaml', which defines how our EC2
+             instance will be created.  The VM creation step includes user data to download the 
+             'vpn-setup.sh' script from GitHub, then run it.
+
+
+        3. We have a shell script we run from our machine, 'vpn-create-cloudformation-stack.sh', which
+             adds the options for the CloudFormation template, then passes them in and creates the 
+             CloudFormation stack, and returns the outputs of the creation.
+
+
+    - The new template uses the '!Sub' and '!Base64' functions.
+
+        - The '!Sub' function substitutes placeholders $() with their real value.
+
+            !Sub 'Your VPC ID: $(VPC)'      # becomes 'Your VPC ID: vpc-123456'
+    
+
+        - The '!Base64' function encodes input with Base64.
+
+            !Base64 'value'                 # becomes 'dmFsdWU='
+
+
+    - Now, we can terminate the the VM and clean up the environment:
+
+        $ aws cloudformation delete-stack --stack-name vpn
+
+
+    - If we need to update our script later, the easiest way to do it is to spin up a new VM.
+
+        1. Create a new VM with the new version of the script
+
+        2. Test that it works, or make changes until it does
+
+        3. Once it's up and running, switch the DNS record to point to the new VM, and terminate the old 
+            one.
+
+
+
+- Deploying a Simple Web Application with AWS Elastic Beanstalk
+
+
+- Components of AWS Elastic Beanstalk
+
+
+- Using AWS Elastic Beanstalk to Deploy Node.js Application
+
+
+- Deploying a Multilayer Application with AWS OpsWorks Stacks
