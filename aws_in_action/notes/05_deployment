@@ -223,4 +223,195 @@
 
 - Deploying a Multilayer Application with AWS OpsWorks Stacks
 
-    - 
+    - Elastic Beanstalk is convenient, but if we need to deploy a more complex application consisting
+        of different services (layers), you'll need something like OpsWorks.  
+
+
+    - OpsWorks comes in 2 flavors:
+
+        1. 'AWS OpsWorks Stacks' allows you to deploy applications based on Chef recipes.
+
+        2. 'AWS OpsWorks for Chef Automate' provides a 'Chef Automate' server, which takes care
+             of backups, restorations, and software upgrades.
+
+
+    - Standard layers:
+
+        - HAProxy (load balancer)
+        - Static web server
+        - Rails app server (Ruby on Rails)
+        - PHP app server
+        - Node.js app server
+        - Java app server (Tomcat server)
+        - AWS Flow (Ruby)
+        - MySQL (database)
+        - Memcached (in-memory cache)
+        - Ganglia (monitoring)
+
+
+
+- Chef
+
+    - Chef is a configuration management tool similary to Puppet or Ansible.  Chef lets you configure and
+        deploy applications by transforming templates (recipes) written in a domain-specific language (DSL) 
+        into actions.
+
+
+    - To get a variety of open sorce recipes, 
+        https://supermarket.chef.io
+
+
+    - Chef can be run in solo or client-server mode.  The client-server mode can be used to manage a
+        distributed system consisting of many VMs.  In solo mode, it is used to execute recipes on a
+        single VM.
+
+
+
+- Components of OpsWorks Stacks
+
+    - A 'stack' is a container for all other components of OpsWorks stacks.  You can create one or more
+        stacks, and add one or more layers to each stack.  For example, you could create separate
+        stacks for testing and production environments.
+
+
+    - A 'layer' belongs to a stack.  A layer represents an application, you could also call it a service.
+        Either predefined layers (ie Rails app server) can be used, or you can also define custom
+        stacks.
+
+      Layers are responsible for configuring and deploying software to virtual machines. You can add one 
+        or multiple VMs to a layer; in this context the VMs are called 'instances'.
+
+
+    - An 'instance' is the representation for a VM.  You can launch one or more instances using 
+        standard AMIs like Amazon Linux or Ubuntu.
+
+
+    - An 'app' is the software you want to deploy.  OpsWorks Stacks deploys your app to a suitable
+        layer automatically.
+
+
+
+        Stack
+        ---------------------------------------------------
+        Web server layer:        Instance     Instance
+        PHP web application        + App        + App
+
+        API server layer:        Instance     Instance
+        Java application           + App        + App
+
+        Database layer:                Instance
+        MySQL database                   + DB
+
+
+
+- Deploying an IRC Chat Application with AWS OpsWorks Stacks
+
+    - Here, we'll deploy kiwiIRC, a web-based IRC client, and our own IRC server.  kiwiIRC is a Node-based 
+        open source application.
+
+
+    - To create an OpsWorks Stack:
+
+        > Services: OpsWorks Stack
+          > Select 'Chef 11'
+          > Name: irc
+          > Region: US East (N. Virginia)
+          > Default VPC
+          > Default subnet
+          > Default OS: Ubuntu 14.04
+          > SSH Key: mykey
+          > 'Add Stack'
+
+
+    - Add a Node.js Layer:
+
+        > Select 'Layers' in menu
+          > Add Layer
+            > Layer type: Node.js App Server
+            > Node version: 0.12.x
+            > 'Add Layer'
+
+
+    - Add a custome layer for the IRC Server:
+
+        > Add Layer
+          > Layer type: Custom
+          > Name: irc-server
+          > 'Add Layer'
+
+
+    - The IRC server needs to be reachable through port 6667.  To allow access to this port, we need to
+        define a custom firewall.  To do this, we'll use a script with CloudFormation commands.  The
+        script uses the 'irc-create-cloudformation.yaml' template.
+
+        $ templates/irc/irc-create-cloudformation-stack.sh
+
+
+    - Next, we need attach this custom firewall configuration to the Custom OpsWorks layer.
+
+        > Layers
+          > irc-server Layer
+            > Security > Edit
+              > Security Groups: Add the 'irc' group
+
+
+    - Finally, we need to configure the layer recipes for deploying an IRC server:
+
+        > Layers
+          > irc-server Layer
+            > Recipes > Edit
+              > OS Packages: Add 'ircd-ircu' package
+
+
+    - Now, we can deploy the client app to the Node.js layer we created:
+
+        > Apps
+          > Add app
+            > Name: kiwiIRC
+            > Type: Node.js
+            > Repository: https://github.com/AWSinAction/KiwiIRC.git
+            > 'Add app'
+
+
+    - To add instances of the server and client to run the application:
+
+        > Instances
+          > Add instance on Node.js App Server layer
+            > Size: t2.micro
+            > 'Add instance'
+
+        > Instances
+          > Add instance on Custom layer
+            > Size: t2.micro
+            > 'Add instance'
+
+
+
+- Using kiwiIRC
+
+    - Write down public IP address of IRC server.  Then, open the client's public IP address in a web
+        browser.
+
+
+    - At the client login screen:
+
+        Nickname: me
+        Channel: awsinaction
+        Server: server-public-ip
+        Port: 6667
+        SSL: Disabled
+
+        > Start
+
+
+
+- Cleaning Up
+
+    - To clean up:
+
+        - Delete irc-server and irc-client instances
+        - Delete the kiwiIRC app
+        - Delete the stack
+
+        - Delete the security group
+           $ aws cloudformation delete-stack --stack-name irc
