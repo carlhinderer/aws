@@ -66,7 +66,7 @@
 
 
 
-- Deploying OpenSwan (A VPN Server to a VM)
+- Deploying OpenSwan (A VPN Server) to a VM
 
     - Let's say you're working over public WiFi, and you want to tunnel your traffic through a VPN
         because unencrypted communication (ie HTTP instead of HTTPS) can be intercepted by an attacker.
@@ -121,11 +121,106 @@
 
 - Deploying a Simple Web Application with AWS Elastic Beanstalk
 
+    - AWS Elastic Beanstalk offers a simple way to deploy a common web application on one of the supported
+        runtimes.
+
+
+    - It lets you handle these common concerns:
+
+         - Providing a runtime environment (ie PHP, Java, etc.)
+         - Update the runtime environment
+         - Install and update a web application automatically
+         - Configure a web application and it's environment
+         - Scale a web application to balance load
+         - Monitor and debug a web application
+
+
 
 - Components of AWS Elastic Beanstalk
 
+    - An 'application' is a logical container.  It contains versions, environments, and configurations.
+        Once we create an application, we can use Beanstalk in a specific region.
 
-- Using AWS Elastic Beanstalk to Deploy Node.js Application
+
+    - A 'version' contains a specific release of your application.  To create a new version, we upload
+        executables (packed into an archive) to to S3.  A version is basically a pointer to this
+        archive of executables.
+
+
+    - A 'configuration template' contains your default configuration.  You can manage your application's
+        configuration (ie the port it listens on) with this custom template.
+
+
+    - An 'environment' is where Beanstalk executes your application.  It consists of a 'version' and a
+        'configuration'.
+
+
+
+- Using AWS Elastic Beanstalk to Deploy 'EtherPad', Node.js Application
+
+    - Etherpad is an open source online editor that lets many people edit the same document in 
+        real time.  It is a Node application.
+
+
+    - To deploy it with Beanstalk we will:
+
+        1. Create an application, the logical container.
+
+            $ aws elasticbeanstalk create-application --application-name etherpad
+
+
+        2. Create a version of the application using the zip file we uploaded to S3.
+
+            $ aws elasticbeanstalk create-application-version --application-name etherpad \
+                --version-label 1 \
+                --source-bundle "S3Bucket=awsinaction-code2,S3Key=chapter05/etherpad.zip"
+
+
+        3. Create an environment to execute Etherpad
+
+           First, we get the latest Node.js environment version, called a 'solution stack name'.
+
+             $ aws elasticbeanstalk list-available-solution-stacks --output text \
+                 --query "SolutionStacks[?contains(@, 'running Node.js')] | [0]"
+
+
+           Now, we lanuch an environment, replacing '$SolutionStackName' with the output from the
+             previous command.
+
+             $ aws elasticbeanstalk create-environment --environment-name etherpad \
+                 --application-name etherpad \
+                 --option-settings Namespace=aws:elasticbeanstalk:environment, \
+                 OptionName=EnvironmentType,Value=SingleInstance \
+                 --solution-stack-name "$SolutionStackName" \
+                 --version-label 1
+
+
+    - Now, we can describe our Etherpad environment:
+
+        $ aws elasticbeanstalk describe-environments --environment-names etherpad
+
+
+    - And we can navigate to the Etherpad application in our web browser using the Public IP Address
+        returned in the previous command.
+
+
+    - We can monitor our application in the AWS console by navigating to 'Services > Elastic Beanstalk'.
+
+
+    - To clean up:
+
+        # Terminate the Etherpad environment
+        $ aws elasticbeanstalk terminate-environment --environment-name etherpad
+
+        # Check the status of the environment
+        $ aws elasticbeanstalk describe-environments --environment-names etherpad \
+            --output text --query "Environments[].Status"
+
+        # Once the environment status is changed to 'Terminated', delete the application
+        $ aws elasticbeanstalk delete-application --application-name etherpad
+
 
 
 - Deploying a Multilayer Application with AWS OpsWorks Stacks
+
+    - 
