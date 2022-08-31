@@ -1,0 +1,103 @@
+-----------------------------------------------------------------------------
+| CHAPTER 6 - SECURING THE SYSTEM: IAM, SECURITY GROUPS, & VPC              |
+-----------------------------------------------------------------------------
+
+- 4 Most Important Security Techniques
+
+    1. Installing software updates
+
+    2. Restricting access to your AWS account
+
+    3. Controlling network traffic to and from EC2 instances
+
+    4. Creating a private network
+
+
+    - Note that application-level security is not covered in this book.  Follow security standards when
+        buying or developing applications.  For example, validate user input, don't save passwords in
+        plain text, and use TLS/SSL to encrypt traffic between VMs and users.  Use automated security
+        scanning tools like 'Amazon Inspector'.
+
+
+
+- Who's Responsible for Security?
+
+    - The cloud is a shared-responsibility environment.  AWS is responsible for:
+
+        - Protecting the network against things like DDoS attacks
+
+        - Performing background checks on employees who have access to sensitive areas
+
+        - Decommissioning storage devices by physically destroying them
+
+        - Ensuring physical and environmental security of data centers
+
+
+    - Our responsibilities are:
+
+        - Implementing access management that restricts access to resources like S3 and EC2 using AWS IAM
+
+        - Encrypting network traffic to prevent attackers from reading or manipulating data
+
+        - Configuring a firewall for your virtual network that controls incoming and outgoing traffic
+            with Security Groups and ACLs
+
+        - Managing patches for the OS and additional software on VMs
+
+
+
+- Keeping Software Up to Date
+
+    - If a security update is released, it must be installed quickly, because the exploit may have already
+        been released.  We should have a working plan to apply updates to all running VMs as quickly as
+        possible.
+
+
+    - When we log into an Amazon Linux EC2 instance via SSH, we'll see a message about security updates:
+        
+        $ ssh ec2-user@ec2-34-230-84-110.compute-1.amazonaws.com
+
+        8 package(s) needed for security, out of 8 available
+        Run "sudo yum update" to apply all updates.
+
+
+    - To install updates on systems with yum:
+
+        $ yum --security check-update
+
+
+    - We should follow feeds for whichever systems we are using to keep up with security issues found,
+        and keep track of whether we are affected by them.
+
+
+
+- Installing Security Updates on Startup
+
+    - If we create EC2 instances with CloudFormation templates, we have 3 options for installing security
+        updates on startup:
+
+        1. Install all updates at the end of the boot process using a user-data script (yum -y update).
+
+        2. Install security updates only at the end of the boot process using a user-data script
+             (yum -y --security update).
+
+        3. Define the package versions explicitly.
+
+
+    - The problem with automatically installing all updates is that you have a different machine than the
+        one you tested on.  To test specific package updates, we can use the 'yum update-to' command.
+
+        # Update bash to version 4.2.46-28.37.amzn1
+        $ yum update-to bash-4.2.46-28.37.amzn1
+
+
+
+- Installing Security Updates on Running VMs
+
+    - If we have a security update we need to apply to lots of running VMs, it's inconvenient to SSH into
+        each one.  We have a script, 'update.sh' to do this automatically.
+
+
+    - Using SSH to install updates, even with the help of a script, can be challenging.  For instance,
+        you have to handle all the errors that may occur.  The 'AWS Systems Manager' can make this
+        easier, by installing an agent on each machine and creating a job to patch all your VMs.
