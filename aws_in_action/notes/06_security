@@ -356,3 +356,229 @@
         2. Create an instance profile
 
         3. Attach the IAM role to the VM
+
+
+
+- Controlling Network Traffic To and From Your VM
+
+    - With a firewall, you can control both inbound (aka 'ingress') and outbound (aka 'egress') traffic.
+        For instance, if you run a web server, only ports 80 and 443 need to be open to the outside
+        world.
+
+
+    - Before network traffic can enter or leave your EC2 instance, it goes through a firewall provided
+        by AWS.  The firewall inspects the network traffic and uses rules to decide whether the 
+        traffic is allowed or denied.
+
+
+    - Inbound rules filter traffic based on it's source.  Outbound rules filter traffic based on it's
+        destination.  The source/destination is either an IP address or a Security Group.
+
+      By default, a security does not allow any inbound traffic.  A security group contains a rule
+        allowing all outbound traffic by default.
+
+
+    - To debug connection problems, you can enable 'VPC Flow Logs', which will give you aggregated
+        log messages that will describe why connections were rejected.
+
+
+
+- Controlling Traffic to VMs with Security Groups
+
+    - You can associate one or more security groups with AWS Resources (ie EC2 instances) to control
+        traffic.  A 'Security Group' consists of a set of rules.  Each rule allows network traffic
+        based on the following:
+
+        1. Direction (inbound or outbound)
+        
+        2. IP Protocol (TCP, UDP, ICMP)
+
+        3. Port
+
+        4. Source or destination based on IP address, IP address range, or security group
+
+
+    - Security group resources in CloudFormation are of type 'AWS::EC2::SecurityGroup'.  In 
+        'templates/06_firewalls/firewall1.yaml', we have an empty security group associated with a
+        single EC2 instance.
+
+        firewall1.yaml
+        -----------------------------
+        Resources:
+          SecurityGroup:
+            Type: 'AWS::EC2::SecurityGroup'
+            Properties:
+              GroupDescription: 'Learn how to protect your EC2 Instance.'
+              VpcId: !Ref VPC
+              Tags:
+              - Key: Name
+                Value: 'AWS in Action: chapter 6 (firewall)'
+        Instance:
+          Type: 'AWS::EC2::Instance'
+          Properties:
+            ...
+            NetworkInterfaces:
+              GroupSet:
+              - !Ref SecurityGroup
+
+
+
+- Allowing ICMP Traffic
+
+    - If we want to ping an EC2 instance, we must allow inbound ICMP traffic.  If we try to ping our
+        new instance now, it will not work.
+
+        $ ping ec2-52-5-109-147.compute-1.amazonaws.com
+
+
+    - We'll update our template ('firewall2.yaml') to allow it:
+
+        SecurityGroup:
+          ...
+          SecurityGroupIngress:         # Allows incoming traffic
+          - IpProtocol: icmp            # ICMP protocol
+            FromPort: '-1'              # All ports (ICMP doesn't use ports)
+            ToPort: '-1'                # All ports
+            CidrIp: '0.0.0.0/0'         # All source IP addresses allowed
+
+
+    - Now we can ping our instance, and it should work.
+
+
+
+- Allowing SSH Traffic
+
+    - To allow SSH access to our VM, we add another rule ('firewall3.yaml'):
+
+        SecurityGroup:
+          ...
+          SecurityGroupIngress:         # Allows incoming traffic
+          - IpProtocol: tcp
+            FromPort: '22'
+            ToPort: '22'
+            CidrIp: '0.0.0.0/0'
+
+
+    - Once we update our template, SSH should now work also.
+
+
+
+- Allowing SSH Traffic From a Source IP Address
+
+    - Public vs Private IP Addresses
+
+        - On our local network, we use private IP addresses, and each of our devices has a separate one.
+
+            Class A Private:    10.0.0.0    - 10.255.255.255
+            Class B Private:    172.16.0.0  - 172.31.255.255
+            Class C Private:    192.168.0.0 - 192.168.255.255
+
+        - Only our gateway (the router) has a public IP address, and all requests are redirected to the
+            gateway (via NAT).  Our local devices only know that the internet gateway is reachable via
+            192.168.0.1 on the private network.
+
+        - To get your public IP address, visit http://api.ipify.org .  For most of us, our public IP
+            changes from time to time, usually when you reconnect to the internet.
+
+
+    - So far, we've been allowing traffic to port 22 from all IP addresses.  It is possible to restrict
+        access to only your own IP address for additional security as well.
+
+
+    - Hard-coding the IP address isn't a great idea since it changes from time to time.  So, we need to
+        add a parameter to the template that holds our current IP address.  We'll update this with
+        'firewall4.yaml'.
+
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: !Sub '${IpForSSH}/32'
+
+
+    - We'll type in our current IP address, and now SSH will only be available from our IP.
+
+
+
+- Allowing SSH Traffic From a Source Security Group
+
+    - It is possible to control network traffic based on whether the source or destination belongs to
+        a specific security group (this applies to other AWS resouces only, obviously).  For example,
+        you can say that a MySQL database can only be accessed from your web servers.
+
+
+    - To explore this concept, we'll create a 'bastion host' (aka a 'jump box') for SSH access.  The
+        trick is that only one VM, the bastion host, can be accessed via SSH from the internet.  All
+        other VMs can only be reached via SSH from the bastion host.
+
+      Advantages of this:
+
+        1. You only have one entry point into your system, and that entry point does nothing but SSH.
+
+        2. If one of your VMs gets hacked, the attacker can't jump from that one machine to all the
+             other machines.
+
+
+    - To implement the concept of a bastion host, you must follow 2 rules:
+
+        1. Allow SSH access to the bastion host from 0.0.0.0 or a specific source address.
+
+        2. Allow SSH access to all other VMs only if the traffic source is the bastion host.
+
+
+    - We'll update our stack ('firewall5.yaml') with these security groups:
+
+        SecurityGroupBastionHost:
+          Type: 'AWS::EC2::SecurityGroup'
+          Properties:
+            GroupDescription: 'Allowing incoming SSH and ICPM from anywhere.'
+            VpcId: !Ref VPC
+            SecurityGroupIngress:
+            - IpProtocol: icmp
+              FromPort: "-1"
+              ToPort: "-1"
+              CidrIp: '0.0.0.0/0'
+            - IpProtocol: tcp
+              FromPort: '22'
+              ToPort: '22'
+              CidrIp: !Sub '${IpForSSH}/32'
+        SecurityGroupInstance:
+          Type: 'AWS::EC2::SecurityGroup'
+          Properties:
+            GroupDescription: 'Allowing incoming SSH from the Bastion Host.'
+            VpcId: !Ref VPC
+            SecurityGroupIngress:
+            - IpProtocol: tcp
+              FromPort: '22'
+              ToPort: '22'
+              SourceSecurityGroupId: !Ref SecurityGroupBastionHost
+
+
+    - Our new template has 3 outputs:
+
+        1. BastionHostPublicName = Use this bastion host to connect via SSH from your computer.
+
+        2. Instance1PublicName = Connect to this host only from the bastion host.
+
+        3. Instance2PublicName = Connect to this host only from the bastion host.
+
+
+    - To connect to one of the instances from our machine:
+
+        # Add the path to our SSH key to our SSH agent
+        $ ssh-add $PathToKey/mykey.pem
+
+        # Connect to the bastion host (-A option allows agent forwarding)
+        $ ssh -A ec2-user@$BastionHostPublicName
+
+        # Now we can log into an instance from the bastion host
+        $ ssh $Instance1PublicName
+
+
+    - Note that using Agent Forwarding is a potential security risk, since the bastion host is able
+        to read the private key from your computer.  Therefore, you need to fully trust the bastion
+        host when using agent forwarding.
+
+      A more secure alternative is using the bastion host as a proxy.
+
+        # Establish an SSH connection to Instance1 by using the bastion host as a proxy
+        $ ssh -J ec2-user@BastionHostPublicName ec2-user@Instance1PublicName
