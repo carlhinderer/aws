@@ -1,0 +1,148 @@
+-----------------------------------------------------------------------------
+| CHAPTER 7 - AUTOMATING OPERATIONAL TASKS WITH LAMBDA                      |
+-----------------------------------------------------------------------------
+
+- AWS Lambda
+
+    - Lambda offers execution environments for Java, Node, C#, Python, and Go.  You implement the 
+        function, upload your code, and configure the environment.  After that, your code is executed
+        in a fully-managed environment.
+
+
+    - Lambda is well-integrated with other parts of AWS, so we can use it to automate operations tasks.
+        For instance, it can add and remove instances to a container cluster or process and analyze log
+        files.
+
+
+    - Lambda is billed by invocation, so you don't have to pay for resources that idle when they're not
+        needed.
+
+
+
+- Building a Website Health Check with Lambda
+
+    - Lambda is a good choice for a website health check, since it only needs to run once very few
+        minutes.  
+
+
+    - We'll also use AWS CloudWatch in this example.  Typically, you inspect metrics using charts, and 
+        create alarms by defining thresholds. For example, a metric could count failures during the 
+        function’s execution. 
+
+      On top of that, CloudWatch provides events that can be used to trigger Lambda functions as well. We 
+        are using a schedule to publish an event every 5 minutes here.
+
+
+    - Our website health check consists of 3 parts:
+
+        1. Lambda function = Executes a Python script, which sends an HTTP request to the website, and
+                               verifies that the response includes specific text.
+
+        2. Scheduled event = Triggers the Lambda function once every 5 minutes (similar to cron).
+
+        3. Alarm           = Monitors the number of failed health checks and notifies you via email when
+                               the service is unavailable.
+
+
+
+- Creating a Lambda Function
+
+    - Schedule expressions, which define recurring tasks, can use either
+
+        - rate($value $unit)
+            Ex. For a function that runs once every 5 minutes, use 'rate(5 minutes)''
+
+        - Crontab format
+            Ex. For a runction that runs at 8AM everyday, use 'cron(0 8 * * ? *)'
+
+
+    - To create a function:
+
+        > Services: Lambda
+          > Create a function
+            > Blueprint: lambda-canary-python3
+            > Function name: website-health-check
+
+            > Role: Create custom Role
+              > Create a new IAM Role
+              > name: lambda_basic_execution
+              > 'Allow'
+              > Select new role from drop-down
+
+            > Rule: Create new rule
+              > Rule name: website-health-check
+              > Description: Check website every 5 minutes
+              > Rule type: Schedule expression
+              > Schedule expression: rate(5 minutes)
+
+
+    - The Python code references 2 environment variables in the code:
+
+        - site = The URL of the website we want to monitor
+
+        - expected = Snippet of text that must be available on website for test to pass
+
+
+
+- Monitoring Lambda Function with CloudWatch
+
+    - If you want to see your Lambda function's log messages, naviagate to 'Monitoring > View Logs in
+        CloudWatch'.  By default, your Lambda function sends log messages to CloudWatch.
+
+      A log group named '/aws/lambda/website-health-check' was created automatically and collects the logs 
+        from your function.
+
+
+    - When writing your own Python, you can use 'print' statements or use the 'logging' module to print
+        custom log messages.  This is very handy for debugging.
+
+
+    - The CloudWatch metrics screen shows:
+
+        - Invocations = # of times function has been called
+
+        - Errors = # of times function failed due to errors inside the function (ie timeouts, exceptions)
+
+        - Duration = how long function takes to run
+
+        - Throttles = how many times too many copies of function are running at the same time
+
+
+    - To create an alarm that will email us if the function fails:
+
+        > Services: CloudWatch
+          > All Alarms
+            > Create Alarm
+              > Lambda Metrics > By Function Name
+                > website-health-check: Errors
+                  > Statistic: Sum
+                  > Update: 5 minutes
+                  > Timespan: 5 minutes ago to now
+                  > 'Next'
+                  > Threshold: > 0
+                  > 'In alarm'
+                  > Add email
+                  > 'Create Alarm'
+
+
+    - To clean up:
+
+        - Delete the Lambda function
+        - Delete the CloudWatch log group
+        - Delete the CloudWatch alarm
+        - Delete the IAM Role
+
+
+
+- Accessing Endpoints within a VPC
+
+    - By default, Lambda functions run outside your VPC networks.  For instance, our website-health-check
+        function was sending HTTP requests over the internet.
+
+
+    - If we wanted to run a health check for an internal web site not available on the internet, we can
+        add network interfaces to our Lambda function.  To do this, you have to define the VPC, subnets,
+        and security groups for the Lambda function.  We'll often do this to access databases.
+
+
+    - Note that we should only do this if we have to, since it adds complexity.
