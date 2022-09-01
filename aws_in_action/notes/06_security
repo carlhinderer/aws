@@ -311,3 +311,48 @@
             > Select User
               > Security Credentials
                 > 'Enable MFA'
+
+
+
+- Authenticating AWS Resources with Roles
+
+    - There are various use cases where an EC2 instance needs to access or manage AWS resources.  For
+        example, an EC2 instance might need to:
+
+        - Back up data to S3
+
+        - Terminate itself after a job has been completed
+
+        - Change the configuration of the private network environment in the cloud
+
+
+    - To be able to access the AWS API, an EC2 instance needs to authenticate itself.  You could create
+        an IAM user with access keys and store the access keys on the EC2 instance, but this is a
+        hassle.
+
+      Instead, we should use an IAM role, which will inject your access keys into the EC2 instance
+        automatically.
+
+
+    - If an IAM role is attached to an EC2 instance, all policies attached to those roles are evaluated
+        to determine whether the request is allowed.  By default, no role is attached, and the EC2
+        instance is not allowed to make any calls to the AWS API.
+
+
+
+- Example - EC2 Instance That Auto-Terminates
+
+    - Here, we create an EC2 instance that automatically terminates itself after 5 minutes.
+
+        $ echo "aws ec2 stop-instances --instance-ids i-0b5c991e026104db9" | at now + 5 minutes
+
+
+    - We need to attach an IAM role to the EC2 instance granting it permission to stop itself.  The
+        role contrains an inline policy granting access to the 'ec2:StopInstances' action.  To do this,
+        we follow these steps (template at 'templates/06_ec2_role/ec2-iamrole.yaml'):
+
+        1. Create an IAM Role
+
+        2. Create an instance profile
+
+        3. Attach the IAM role to the VM
