@@ -100,4 +100,214 @@
 
     - Using SSH to install updates, even with the help of a script, can be challenging.  For instance,
         you have to handle all the errors that may occur.  The 'AWS Systems Manager' can make this
-        easier, by installing an agent on each machine and creating a job to patch all your VMs.
+        easier, by installing an agent on each machine and creating a job to patch all your VMs.  It
+        can also reboot systems if that is required for the updates.
+
+
+
+- Securing Your AWS Account
+
+    - All AWS resources are created within an account, a secure basket.  Each AWS account comes with a
+        root user that is granted unrestricted access to all resources.  So far, we have been using
+        the root user to complete all tasks.
+
+
+    - A best practice is to avoid using the root user for anything, but we'll add MFA to the account
+        in case we do need to use it.
+
+        > Click Your Name
+          > My Security Credentials
+            > Install a MFA app on your smartphone that supports the TOTP standard (ie Google Authenticator)
+            > Expand the MFA section
+              > 'Activate MFA'
+              > Select a Virtual MFA device
+              > Follow the instructions and scan the QR code with your smartphone
+
+
+    - If you're using your phone for MFA, it's a good idea to never log into the Management Console from
+        your phone or store the root password in it.  Keep the MFA token separate from your password.
+
+
+
+- AWS IAM
+
+    - IAM Core Concepts
+
+        - An 'IAM User' is used to authenticate people accessing your AWS account.
+
+        - An 'IAM Group' is a collection of IAM Users.
+
+        - An 'IAM Role' is used to authenticate AWS resources.
+
+        - An 'IAM Policy' is used to define the permissions for a user, group, or role.
+
+
+    - By default, users and roles can't do anything.  You have to create a policy stating what actions
+        they are allowed to perform.
+
+
+
+- Defining Permissions with an IAM Policy
+
+    - By attaching one or more policies to an IAM user or role, you are granting them permissions to
+        manage AWS resources.  Policies are defined in JSON and contain one or more statements.
+
+
+    - A statement can allow or deny specific actions on specific resources.  The wildcard * can be used
+        to create more generic statements.
+
+
+    - For example, this policy has one statment, which allows every action for the EC2 service, for all
+        resources:
+
+        {
+          "Version": "2012-10-17",
+          "Statement": [{
+            "Sid": "1",
+            "Effect": "Allow",
+            "Action": "ec2:*",
+            "Resource": "*"
+          }]
+        }
+
+
+    - This policy adds a second statement, which disallows terminating VM instances:
+
+        {
+          "Version": "2012-10-17",
+          "Statement": [{
+            "Sid": "1",
+            "Effect": "Allow",
+            "Action": "ec2:*",
+            "Resource": "*"
+          }, {
+            "Sid": "2",
+            "Effect": "Deny",
+            "Action": "ec2:TerminateInstances",
+            "Resource": "*"
+          }]
+        }
+
+
+    - Note that 'Deny' always overrides 'Allow'.  Once you deny an action, you cannot allow it in
+        another statement.
+
+
+    - So far, we've used '*' for every resource.  Resources in AWS have an 'ARN (Amazon Resource Name)'.
+
+        ARN
+
+        arn:aws:ec2:us-east-1:878533158213:instance/i-3dd4f812
+                 |      |          |           |         |
+             Service  Region   AccountId    Resource   Resource
+                                              Type
+                                          (if multiple)
+
+
+    - We can use the CLI to find out the account id.
+
+        $ aws iam get-user --query "User.Arn" --output text
+
+
+    - Using the resource and account ids, we can use ARNs to allow access to specific resources of a
+        service:
+
+        {
+          "Version": "2012-10-17",
+          "Statement": [{
+            "Sid": "2",
+            "Effect": "Allow",
+            "Action": "ec2:TerminateInstances",
+            "Resource": "arn:aws:ec2:us-east-1:111111111111:instance/i-0b5c991e026104db9"
+          }]
+        }
+
+
+
+- Types of Policies
+
+    - There are 2 types of policies:
+
+        1. Managed Policy = If you want to create policies that can be reused, you will use this.  There
+                              are 2 types:
+
+            - AWS Managed Policy = maintained by AWS, grants rights on AWS resources, etc.
+
+            - Customer Managed Policy = maintained by customer, represents users and their roles in the
+                                          organization, etc.
+
+
+        2. Inline Policy = Belongs to a certain IAM role, user, or group.  It can't exist without the
+                             role, user, or group it belongs to.
+
+
+    - With CloudFormation, it's easy to maintain inline policies, which is why they are mostly used in
+        this book.  One exception is the 'mycli' user, which has the AWS managed policy
+        'AdministratorAccess' attached.
+
+
+
+- Users for Authentication, and Groups to Organize Users
+
+    - A user can authenticate using either a username and password, or with access keys.  When you log
+        into the Management Console, you use your username and password.  When you use the CLI, you
+        are using access keys to authenticate as the 'mycli' user.
+
+
+    - Right now, we're using the root user to log into the Management Console.  We should create an IAM
+        user instead, for 2 reasons:
+
+        1. Creating IAM users allows you to set up a unique user for every person who needs to access
+             your AWS account.
+
+        2. You can grant access only to the resources each user needs, following the principle of least
+             privilege.
+
+
+    - To make adding users easier in the future, we'll first create a group for all users with 
+        Administrator access.  To create a group:
+
+        # Create group
+        $ aws iam create-group --group-name "admin"
+
+        # Attach policy to group
+        $ aws iam attach-group-policy --group-name "admin" \
+            --policy-arn "arn:aws:iam::aws:policy/AdministratorAccess"
+
+        # Create user and add to group
+        $ aws iam create-user --user-name "myuser"
+        $ aws iam add-user-to-group --group-name "admin" --user-name "myuser"
+
+        # Replace $Password with a secure pw
+        $ aws iam create-login-profile --user-name "myuser" --password "$Password"
+
+
+    - Now, we can use our new user 'myuser' to access the Management Console.  However, we need to use a
+        different URL to access the Console if we aren't using the root user.
+
+        # Use the account id we got earlier in place of $accountId
+        https://$accountId.signin.aws.amazon.com/console
+
+
+    - Note that we should always log in using this account from now on.  Stop using the 'root' user.
+
+
+    - Also note that we should never copy a user's access keys to an EC2 instance.  We should use IAM
+        roles instead.  Don't store security credentials in source code, just use IAM roles!
+
+
+
+- Enabling MFA For IAM Users
+
+    - It's a very good idea to enable MFA for all users.  If possible, don't use the same MFA device for
+        the root user that you use for everyday users.  You can buy hardware MFA devices for $13 from AWS
+        partners like Gemalto.
+
+
+    - To enable MFA for your users, follow these steps:
+
+        > Services: IAM
+          > Users
+            > Select User
+              > Security Credentials
+                > 'Enable MFA'
