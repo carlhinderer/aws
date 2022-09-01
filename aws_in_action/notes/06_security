@@ -582,3 +582,214 @@
 
         # Establish an SSH connection to Instance1 by using the bastion host as a proxy
         $ ssh -J ec2-user@BastionHostPublicName ec2-user@Instance1PublicName
+
+
+
+- Creating a Private Network with VPC (Virtual Private Cloud)
+
+    - When you create a VPC, you get your own private network on AWS.  'Private' means that you can use 
+        the address ranges 10.0.0.0/8, 172.16.0.0/12, or 192.168.0.0/16 to design a network that isn’t 
+        necessarily connected to the public internet.  You can create subnets, route tables, ACLs, and 
+        gateways to the internet or a VPN endpoint.
+
+
+    - Subnets allow you to separate concerns.  You can create a separate subnet for your databases, web
+        servers, proxy servers, or application servers.
+
+      You should have at least 2 subnets: public (has a route to the internet) for load balancer or
+        web servers, and private (doesn't have a route to the internet) for your database.
+
+
+    - To understand how to VPC works, we'll create a VPC to host an enterprise web application.  
+
+        1. We'll reimplement the bastion host concept by creating a public subnet that contains only
+             the bastion host server.
+
+        2. We'll create a private subnet for our web servers.
+
+        3. We'll create a public subnet for our proxy servers.  The proxy servers absorb most of the 
+            traffic by responding with the latest version of the page they have in their cache, and they
+            forward traffic to the private web servers.  You can’t access a web server directly over the 
+            internet — only through the web caches.
+
+
+    - The VPC uses the address space 10.0.0.0/16. To separate concerns, you’ll create two public subnets 
+        and one private subnet in the VPC:
+
+        - 10.0.1.0/24 public SSH bastion host subnet
+        - 10.0.2.0/24 public Varnish proxy subnet
+        - 10.0.3.0/24 private Apache web server subnet
+
+
+    - Network ACLs restrict traffic that goes from one subnet to another, acting as a firewall.  It's
+        an additional layer of security on top of security groups, which control traffic to and from 
+        a VM.
+
+      The SSH bastion host from the previous exercise can be implemented with these ACLs:
+
+        - SSH from 0.0.0.0/0 to 10.0.1.0/24 is allowed.
+        - SSH from 10.0.1.0/24 to 10.0.2.0/24 is allowed.
+        - SSH from 10.0.1.0/24 to 10.0.3.0/24 is allowed.
+
+      To allow traffic to the Varnish proxy and the Apache web servers, you'll need these additional
+        ACLs.
+
+        - HTTP from 0.0.0.0/0 to 10.0.2.0/24 is allowed.
+        - HTTP from 10.0.2.0/24 to 10.0.3.0/24 is allowed.
+
+
+
+- Creating the VPC and an Internet Gateway (IGW)
+
+    - We have the template 'vpc.yaml' and a diagram of the network in 'templates/06_vpc'.
+
+
+    - First, we'll add the VPC and the IGW.  The IGW will translate the public IP addresses of your VMs
+        to their private IP addresses using NAT.  All public IP addresses used in the VPC are
+        controlled by this IGW.
+
+        VPC:
+          Type: 'AWS::EC2::VPC'
+          Properties:
+            CidrBlock: '10.0.0.0/16'
+            EnableDnsHostnames: 'true'
+            Tags:
+            - Key: Name                                      # Name for VPC
+              Value: 'AWS in Action: chapter 6 (VPC)'
+
+        InternetGateway:                                     # IGW controls traffic to and from internet
+          Type: 'AWS::EC2::InternetGateway'
+          Properties: {}
+        VPCGatewayAttachment:                                # Attaches IGW to VPC
+          Type: 'AWS::EC2::VPCGatewayAttachment'
+          Properties:
+            VpcId: !Ref VPC
+            InternetGatewayId: !Ref InternetGateway
+
+
+
+- Defining the Public Bastion Host Subnet
+
+    - Our bastion host will only run on a single machine to secure SSH access:
+
+        SubnetPublicBastionHost:
+          Type: 'AWS::EC2::Subnet'
+          Properties:
+            AvailabilityZone: 'us-east-1a'
+            CidrBlock: '10.0.1.0/24'
+            VpcId: !Ref VPC
+            Tags:
+            - Key: Name
+              Value: 'Public Bastion Host'
+
+        RouteTablePublicBastionHost:                           # Route table
+          Type: 'AWS::EC2::RouteTable'
+          Properties:
+            VpcId: !Ref VPC
+
+        RouteTableAssociationPublicBastionHost:                # Associates route table with subnet
+          Type: 'AWS::EC2::SubnetRouteTableAssociation'
+          Properties:
+            SubnetId: !Ref SubnetPublicBastionHost
+            RouteTableId: !Ref RouteTablePublicBastionHost
+
+        RoutePublicBastionHostToInternet:                      # Routes everything to IGW
+          Type: 'AWS::EC2::Route'
+          Properties:
+            RouteTableId: !Ref RouteTablePublicBastionHost
+            DestinationCidrBlock: '0.0.0.0/0'
+            GatewayId: !Ref InternetGateway
+          DependsOn: VPCGatewayAttachment
+
+        NetworkAclPublicBastionHost:                           # Network ACL
+          Type: 'AWS::EC2::NetworkAcl'
+          Properties:
+            VpcId: !Ref VPC
+
+        SubnetNetworkAclAssociationPublicBastionHost:          # Associates NACL with subnet
+          Type: 'AWS::EC2::SubnetNetworkAclAssociation'
+          Properties:
+            SubnetId: !Ref SubnetPublicBastionHost
+            NetworkAclId: !Ref NetworkAclPublicBastionHost
+
+
+    - Next, we define the ACL:
+
+        NetworkAclEntryInPublicBastionHostSSH:
+          Type: 'AWS::EC2::NetworkAclEntry'
+          ...
+
+        NetworkAclEntryInPublicBastionHostEphemeralPorts:
+          Type: 'AWS::EC2::NetworkAclEntry'
+          ...
+
+        NetworkAclEntryOutPublicBastionHostSSH:
+          Type: 'AWS::EC2::NetworkAclEntry'
+          ...
+
+        NetworkAclEntryOutPublicBastionHostEphemeralPorts:
+          Type: 'AWS::EC2::NetworkAclEntry'
+          ...
+
+
+    - There is an important difference between Security Groups and ACLs.  Security groups are stateful,
+        while ACLs are not.
+
+        - If you allow an inbound port on a security group, the corresponding response to requests on that 
+            port are allowed as well.  If you open inbound port 22 on a security group, you can connect 
+            via SSH.
+
+        - This is not true for ACLs.  If you open inbound port 22 on an ACL for your subnet, you still may 
+            not be able to connect via SSH. In addition, you need to allow outbound ephemeral ports
+            (1024-65535), because sshd (SSH daemon) accepts connections on port 22 but uses an ephemeral 
+            port for communication with the client.
+
+
+
+- Completing the VPC Definition
+
+    - The subnet for the Varnish web cache is similar to the bastion host subnet, because it is also a
+        public subnet.
+
+
+    - We'll also define the private subnet for the Apache web server.
+
+        SubnetPrivateApacheWebserver:
+          Type: 'AWS::EC2::Subnet'
+          ...
+
+        RouteTablePrivateApacheWebserver:
+          Type: 'AWS::EC2::RouteTable'
+          ...
+
+        RouteTableAssociationPrivateApacheWebserver:
+          Type: 'AWS::EC2::SubnetRouteTableAssociation'
+          ...
+
+
+    - Traffic between subnets of a VPC is always routed by default.  You can't remove the routes 
+        between the subnets.  If you want to prevent traffic between subnets, you need ACLs attached
+        to the subnets to do it.
+
+
+    - We'll add the EC2 instances for the Bastion Host, Varnish Proxy Server, and Apache Web Server.
+
+        BastionHost:
+          Type: AWS::EC2::Instance
+          ...
+
+        VarnishProxy:
+          Type: AWS::EC2::Instance
+          ...
+
+        ApacheWebserver:
+          Type: AWS::EC2::Instance
+          ...
+
+
+    - One problem is that the Apache web servers don't have a public IP address, so they have no route
+        to the internet.  To solve this problem, we'll create a new subnet for a NAT gateway.
+
+        SubnetPublicNAT:
+          Type: 'AWS::EC2::Subnet'
+          ...
