@@ -1,0 +1,149 @@
+-----------------------------------------------------------------------------
+| CHAPTER 8 - STORING OBJECTS WITH S3 & GLACIER                             |
+-----------------------------------------------------------------------------
+
+- Overview of AWS Data Storage Services
+
+    - S3
+
+        - Acessed via AWS API
+        - Unlimited storage volume
+        - High latency
+        - Very low cost
+
+
+    - Glacier
+
+        - Accessed via S3 or AWS API
+        - Unlimited storage volume
+        - Extremely high latency
+        - Extremely low cost
+
+
+    - EBS (SSD)
+
+        - Attached to EC2 instance via network
+        - 16 TB max
+        - Low latency
+        - Low cost
+
+
+    - EC2 Instance Store (SSD)
+
+        - Attached to EC2 instance directly
+        - 15 TB max
+        - Very low latency
+        - Very low storage cost
+
+
+    - EFS
+
+        - Accessed via NFS (ie from EC2 instance or on premises)
+        - Unlimited storage volume
+        - Medium latency
+        - Medium cost
+
+
+    - RDS
+
+        - Accessed via SQL
+        - 6 TB max
+        - Medium latency
+        - Low cost
+
+
+    - Elasticache
+
+        - Accessed via Redis/memcached protocol
+        - 6.5 TB max
+        - Low latency
+        - High cost
+
+
+    - DynamoDB
+
+        - Acessed via AWS API
+        - Unlimited storage volume
+        - Medium latency
+        - Medium cost
+
+
+
+- What is an Object Store?
+
+    - In an 'object store', data is stored as objects, rather than as a hierarchy of files and folders.
+        Each object has a GUID (aka 'key'), some metadata, and the data itself.
+
+
+    - You can use metadata to enrich an object with additional information.  Typical examples include:
+
+        - Date of last modification
+        - Object size
+        - Object's owner
+        - Object's content type
+
+
+
+- AWS S3
+
+    - The AWS 'Simple Storage Service' is a web service that lets you store and retrieve data organized
+        as objects via an API reachable over HTTPS.
+
+
+    - Common use cases:
+
+        - Storing and delivering static website content
+
+        - Backing up data
+
+        - Storing structured data for data analytics, also called a 'data lake'.  For example, we can
+            store JSON files containing the results of performance benchmarks.
+
+        - Storing and delivering user-generated content.  For example, store user uploads for a website.
+
+
+    - S3 offers unlimited storage space, and stores data in a highly durable and available way.  Any
+        type of data can be stored, as long as a single object doesn't exceed 5 TB.
+
+
+    - You pay by the GB of data stored, and you also incur costs for every request and all transferred
+        data.
+
+
+    - 'Buckets' are used to group objects.  They are containers for objects.  You can create multiple
+        buckets, each of which has a globally unique name.  They are truly unique - you need a name that
+        isn't use by any other AWS customer.
+
+
+
+- Backing Data Up to S3 Using the AWS CLI
+
+    - Here, we'll use the AWS CLI to upload data, then download it from S3.  Note this is also useful for
+        things like sharing documents, sharing deployment artifacts, and freeing up local storage
+        capacity.
+
+
+    - First, we'll create a bucket.
+
+        $ aws s3 mb s3://awsinaction-$yourname
+
+
+    - Now, choose a folder (less than 1 GB) to back up, and upload it.  The 'sync' compares the data
+        from our local folder to the '/backup' folder in the S3 bucket, and uploads only new or changed
+        files.  '$Path' is the local path.
+
+        $ aws s3 sync $Path s3://awsinaction-$yourname/backup
+
+
+    - To test the restore process, download the folder to a local path '$Path'.
+
+        $ aws s3 cp --recursive s3://awsinaction-$yourname/backup $Path
+
+
+    - Data loss with S3 is not a worry at all.  S3 is designed for 99.999999999% durability of objects 
+        over a year.
+
+
+    - To clean up, remove the bucket and all of it's contents:
+
+        $ aws s3 rb --force s3://awsinaction-$yourname

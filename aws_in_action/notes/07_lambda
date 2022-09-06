@@ -321,3 +321,78 @@
         - Delete the S3 bucket we created:
 
             $ aws s3 rb s3://ec2-owner-tag-$yourname --force
+
+
+
+- Limitations of AWS Lambda
+
+    - Each invocation of a Lambda function needs to complete within a maximum of 300 seconds.  It's
+        not possible to download and process a lot of data in a Lambda function.
+
+
+    - Starting a new execution context for a Lambda function requires a 'cold start', where the runtime
+        environment has to be started, your code has to be downloaded, and the environment has to be
+        configured.  Lambda is not a good choice for applications with very strict requirements for
+        response times.
+
+
+    - The maximum amount of memory a Lambda function can use is 3008 MB.  If it uses more memory, it will
+        be terminated.  The default limit for a deployment package is 50 MB.
+
+
+
+- Impacts of the Serverless Pricing Model
+
+    - Whereas EC2 instances are billed by time they are running, Lambda is billed per request.
+
+
+    - The free tier for Lambda does not expire after 12 months, unlike other AWS services.  The free
+        tier provides 400,000 seconds, with 1 GB of provisioned memory, every month.
+
+
+    - We should always look at the TCO between running on Lambda vs EC2.
+
+
+
+- Lambda Use Case - Web Application
+
+    - Building the back end for a web/mobile application is a common use case for Lambda.  An architecture
+        for a serverless web application usually consists of the following building blocks:
+
+        1. Amazon API Gateway = Offers a scalable and secure REST API, which accepts HTTPS requests from
+                                  your application's front end or mobile app.
+
+        2. AWS Lambda = Functions are triggered by the API gateway.  Your function receives data from the
+                          request and returns data for the response.
+
+        3. Object Store and NoSQL Database = For storing and querying data.
+
+
+
+- Lambda Use Case - Data Processing
+
+    - Event-driven data processing is another popular use case for Lambda.  Whenever new data is available,
+        an event is generated.  The event triggers the data processing needed to extract or transform
+        the data.
+
+        1. The load balancer collects access logs and uploads them to an object store periodically.
+
+        2. Whenever an object is created or modified, the object store triggers a Lambda function
+             automatically.
+
+        3. The Lambda function downloads the file including the access logs from the object store, and
+             sends the data to an ElasticSearch database to be available for analytics.
+
+
+
+- Lambda Use Case - IoT Back End
+
+    - The AWS IoT service provides building blocks needed to communicate with various devices (things) and
+        build event-driven applications.
+
+        1. Each thing publishes sensor data to a message broker (MQTT).
+
+        2. A rule filters the relevant messages and triggers a Lambda function.
+
+        3. The Lambda function processes the event, and decides what steps are needed based on business
+             logic you provide.
