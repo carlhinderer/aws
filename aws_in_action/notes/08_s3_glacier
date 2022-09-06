@@ -335,3 +335,101 @@
         s3_client = boto3.client('s3', region_name=region)
         location = {'LocationConstraint': region}
         s3_client.create_bucket(Bucket=bucket_name, CreateBucketConfiguration=location)
+
+
+
+- Using S3 for Static Web Hosting
+
+    - Static web content (HTML, CSS, JavaScript, images, audio, video) can be hosted on S3.  S3 can also
+        be used for:
+
+        - Defining custom index and error documents
+        - Defining redirects for all or specific requests
+        - Setting up a custom domain for an S3 bucket
+
+
+    - Using a CDN can reduce the load time for static content.  It does this by distributing the static
+        content around the world, and serving requests from the nearest version of the content.  AWS
+        CloudFront is AWS's CDN.  To use it, you upload content to S3 or other sources, then configure
+        CloudFront.
+
+
+    - First, we'll create a bucket and upload a static website.
+
+        $ aws s3 mb s3://$BucketName
+
+        $ aws s3 cp $PathToPlaceholder/helloworld.html s3://$BucketName/helloworld.html
+
+
+    - By default, only you, the owner, can access files in your bucket.  To allow everyone to view it,
+        we'll create a 'bucket policy', which helps control access to bucket objects globally.  We'll
+        use the 'bucketpolicy.json' file in 'templates/08_static_website'.
+
+        bucketpolicy.json
+        ------------------------------------------
+        {
+          "Version":"2012-10-17",
+          "Statement":[
+            {
+              "Sid":"AddPerm",
+              "Effect":"Allow",
+              "Principal": "*",
+              "Action":["s3:GetObject"],
+              "Resource":["arn:aws:s3:::$BucketName/*"]
+            }
+          ]
+        }
+
+
+    - To add the policy to our bucket:
+
+        $ aws s3api put-bucket-policy --bucket $BucketName \
+            --policy file://$PathToPolicy/bucketpolicy.json
+
+      Now, every object in the bucket can be downloaded by anyone.
+
+
+    - Next, we need to enable and configure the static web-hosting feature of S3.
+
+        $ aws s3 website s3://$BucketName --index-document helloworld.html
+
+
+    - We can now access the static website with a browser:
+
+        http://BucketName.s3-website-us-east-1.amazonaws.com
+
+
+    - To clean up, we need to remove the bucket:
+
+        $ aws s3 rb --force s3://$BucketName
+
+
+    - Note that if we wanted to use a custom domain name, we just need to add a CNAME record for our
+        domain, and point it to the S3 bucket.  Note a few things:
+
+        1. The bucket name must match the CNAME record exactly for this to work.
+
+        2. CNAME records won't work for the primary domain name.  You need to use a subdomain.  Use the
+             AWS Route 53 DNS service to use it as the primary name.
+
+        3. This will only work with HTTP.  Use AWS CloudFront to enable HTTPS.
+
+
+
+- Best Practices for Using S3
+
+    - S3 is eventually consistent, so it's possible to get stale reads for a short period of time.
+        Usually, this is less than a second, but it could be longer in rare cases.
+
+      If you don’t send a GET or HEAD request to the key of an object before creating the object with a PUT
+        request, S3 offers read-after-write consistency in all regions.
+
+
+    - Choosing the right file keys can be difficult.  In S3, keys are stored in alphabetical order in an
+        index.  If you keys all begin with the same characters, this will limit your I/O performance.
+        If a single bucket has more than 100 requests per second, start filenames with different
+        characters.
+
+
+    - Using a / before a key name acts like creating a folder for your object.  Note that under the hood,
+        the directory structure doesn't exist, but it will help organize things in the GUI.
