@@ -147,3 +147,143 @@
     - To clean up, remove the bucket and all of it's contents:
 
         $ aws s3 rb --force s3://awsinaction-$yourname
+
+
+
+- Versioning for Objects
+
+    - By default, S3 versioning is disabled for every bucket.  For instance, if you:
+
+        1. Add an object with key A and data D1.
+        2. Add an object with key A and data D2.
+
+      D2 will overwrite D1.
+
+
+    - You can change this behavior by turning on 'versioning' for a bucket.
+
+        $ aws s3api put-bucket-versioning --bucket awsinaction-$yourname \
+            --versioning-configuration Status=Enabled
+
+
+    - Now, the first version of object A with D1 will still exist, even after we add an object A with D2.
+        To retrieve all objects and versions:
+
+        $ aws s3api list-object-versions --bucket awsinaction-$yourname
+
+
+    - Now, we can download all versions of an object.  This can be useful for backup and archiving 
+        scenarios.
+
+
+
+- Archiving Objects to Optimize Costs
+
+    - We can use AWS Glacier to reduce the cost of backup storage.  It costs about 1/5 as much as S3.
+        Note that it may take up to 12 hours for data to be retrieved.
+
+
+    - Glacier is designed for archiving large files that you upload once, and download seldom.  It is
+        expensive to upload and retrieve a lot of small files, so you should bundle files into large
+        archives before storing them in Glacier.
+
+
+    - Here, we'll archive objects that have been stored in S3 in Glacier.  For example:
+
+        1. Suppose we store measurement data from temperature sensors on S3.  
+
+        2. The raw data is uploaded constantly to S3, and processed once a day.  
+
+        3. After the raw data has been analyzed, results are stored in a DB.
+
+        4. The raw measurement data is no longer needed, but we archive it in case we want to re-run the
+             data processing again in the future.
+
+
+    - First, create an S3 bucket in the Management Console.
+
+        > Services > S3
+          > Create Bucket
+            > Name: awsincation-glacier-$yourname
+            > Region: us-east
+            > 'Create'
+
+
+    - Next, we'll add a lifecycle rule to the bucket.
+
+        > Select bucket in S3
+          > 'Management' Tab
+            > Add Lifecycle Rule
+              > Name: glacier
+              > Filter: Leave empty
+              > 'Next'
+
+              > Enable transitions with 'Move current versions of objects between storage classes'
+              > Select 'Transition to Amazon Glacier'
+              > Days After Object Creation: 0
+              > 'Next'
+
+              > 'Save'
+
+
+    - Now, all objects will automatically be moved from the bucket to Glacier.  To test this, go back
+        to the bucket in the console, and click 'Upload', and add a bunch of files.  Even though the
+        chosen time gap is 0 days, it will still take up to 24 hours to see the storage class moved to
+        'Glacier'.
+
+
+    - Now, assume we find a bug in the processing of our measurement data, and we need to restore the
+        raw data so it can be reprocessed.  To trigger a restore:
+
+        > Open the S3 bucket 'awsincation-glacier-$yourname'
+          > Select the object you want to restore
+            > 'Initiate Restore'
+              > Number of days archived data will be accessible: 1
+              > Retrieval option: Standard (3-5 hrs)
+              > 'Restore'
+
+      After the object is restored, we can download it for reprocessing.
+
+
+    - To clean up, delete the S3 bucket.
+
+
+
+- Storing Object Programatically
+
+    - We can execute operations from the SDK like:
+
+        - Listing buckets and their objects
+        - CRUD objects and buckets
+        - Managing access to buckets
+
+
+    - Examples of integrating S3 into our application:
+
+        - Allow a user to upload a profile picture
+        - Generate monthly reports as PDFs
+        - Share data between applications
+
+
+    - In our example, we'll build a simple web application called 'Simple S3 Gallery' in Node.js.  This
+        is located in 'javascript/gallery'.
+
+
+    - First, we need to create a new S3 bucket.
+
+        $ aws s3 mb s3://awsinaction-sdk-$yourname
+
+
+    - Now, we'll install dependencies and run the application.
+
+        $ cd gallery
+        $ npm install 
+        $ node server.js awsinaction-sdk-$yourname
+
+
+    - And we can open the application at http://localhost:8080 and upload a few images.
+
+
+    - To clean up, remove the S3 bucket.
+
+        $ aws s3 rb --force s3://awsinaction-sdk-$yourname
