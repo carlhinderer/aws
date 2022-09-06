@@ -287,3 +287,51 @@
     - To clean up, remove the S3 bucket.
 
         $ aws s3 rb --force s3://awsinaction-sdk-$yourname
+
+
+
+- Using Python with S3
+
+    - Client vs Resource
+
+        - Most AWS services have 2 ways of accessing APIs in SDKs:
+
+            1. Clients = used for low-level service access
+
+            2. Resources = higher-level object-oriented service access
+
+
+        - Client operations give you a dictionary response.  To get the information you need, you parse
+            the response yourself.  Boto3 generates the client from a JSON service definition file.  The
+            client's methods support every single type of interaction with the service.
+
+
+        - Resources are generated from JSON resource definition files.  They parse responses for you.
+
+
+        - To create them: 
+
+            # Create S3 client
+            s3_client = boto3.client('s3')
+
+            # Create S3 resource
+            s3_resource = boto3.resource('s3')
+
+
+    - Bucket names must be unique across all AWS users, since bucket names are DNS-compliant.  If you
+        try to create a bucket with a name that already exists, you'll get a 
+        'botocore.errorfactory.BucketAlreadyExists' exception.
+
+
+    - When creating a bucket, we can specify a region for the bucket to be created in, to minimize
+        latency or to address regulatory requirements.  If a region is not specified, the bucket is 
+        created in the S3 default region (us-east-1).
+
+        # Create bucket in default region
+        s3_client = boto3.client('s3')
+        s3_client.create_bucket(Bucket=bucket_name)
+
+        # Create bucket in specific region
+        s3_client = boto3.client('s3', region_name=region)
+        location = {'LocationConstraint': region}
+        s3_client.create_bucket(Bucket=bucket_name, CreateBucketConfiguration=location)
