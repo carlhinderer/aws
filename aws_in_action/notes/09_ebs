@@ -1,0 +1,164 @@
+-----------------------------------------------------------------------------
+| CHAPTER 9 - STORING DATA ON HARD DRIVES - EBS & THE INSTANCE STORE        |
+-----------------------------------------------------------------------------
+
+- Storing Data on Hard Drives
+
+    - If you want to migrate an existing enterprise app to the cloud, the application likely reads and
+        writes files to disk, making object storage impossible.  For this, you'll need block-level
+        storage, unless you make major changes to the existing application.
+
+
+    - Block-level storage with a disk file system (ie FAT32, NTFS, ext3, ext4, XFS) can be used as you
+        would use attached disk.  A 'block' is a sequence of bytes, the smallest addressable unit.  
+
+
+    - The OS is the intermediary between applications and block-level storage.  The disk file system manages
+        where your files are stored.  Block-level storage can only be used in combination with EC2
+        instances that are running.
+
+
+    - The OS provides access to block-level storage via open, write, and read system calls.  The simplified 
+        flow of a read request goes like this:
+
+        1. An application wants to read the file /path/to/file.txt and makes a read system call.
+
+        2. The OS forwards the read request to the file system.
+
+        3. The file system translates /path/to/file.txt to the block on the disk where the data is stored.
+
+
+    - Applications like databases that read or write files by using system calls must have access to 
+        block-level storage for persistence. You can’t tell a MySQL database to store its files in an object
+        store, because MySQL uses system calls to access files.
+
+
+    - AWS provides two kinds of block-level storage:
+
+      1. A persistent block-level storage volume connected via network - This is the best choice for most 
+             problems, because it is independent from your virtual machine’s life cycle and replicates data 
+             among multiple disks automatically to increase durability and availability.
+
+      2. A temporary block-level storage volume physically attached to the host system of the virtual 
+             machine — This is interesting if you’re optimizing for performance, as it is directly attached 
+             to the host system and therefore offers low latency and high throughput when accessing your 
+             data.
+
+
+
+- Elastic Block Store (EBS) - Persistent block-level storage attached over the network
+
+    - EBS provides persistent block-level storage with built-in data replication.  Typically, EBS is used
+        in the following scenarios:
+
+        - Operating a relational database system on a VM
+
+        - Running a legacy application that requires a filesystem to store data on EC2
+
+        - Storing and booting the OS of a VM
+
+
+    - An EBS volume is separate from an EC2 instance and connected over the network.  EBS volumes:
+
+        - Are separate from EC2 instances.  If you terminate the EC2 instance, the EBS volumes remain.
+
+        - Are attached to either 0 or 1 EC2 instances at a time
+
+        - Can be used like typical hard disks
+
+        - Replicate your data to prevent data loss due to hardware failures
+
+
+
+- Creating an EBS Volume and Attaching it to Your EC2 Instance
+
+    - We want to create an EBS volume for persistent block storage, and attach it to an EC2 instance.
+        To do this with CloudFormation:
+
+        EC2Instance:
+          Type: 'AWS::EC2::Instance'
+          Properties:
+            # [...]
+
+        Volume:
+          Type: 'AWS::EC2::Volume'
+          Properties:
+            AvailabilityZone: !Sub ${EC2Instance.AvailabilityZone}
+            Size: 5
+            VolumeType: gp2                                           # Default SSD type
+          Tags:
+          - Key: Name
+            Value: 'AWS in Action: chapter 9 (EBS)
+
+        VolumeAttachment:
+          Type: 'AWS::EC2::VolumeAttachment'
+          Condition: Attached
+          Properties:
+            Device: '/dev/xvdf'
+            InstanceId: !Ref EC2Instance
+            VolumeId: !Ref Volume
+
+
+
+- Using EBS
+
+    - We'll create a CloudFormation stack using the template at 'templates/09_ebs/ebs.yaml'.  After
+        creating the stack, we copy the 'PublicName' output and connect to the new VM:
+
+        $ ssh -i mykey.pem ec2-user@$PublicName
+
+
+    - Once we've logged into the VM, we can see details about the attached EBS volumes:
+
+        $ sudo fdisk -l
+
+
+    - Usually, EBS volumes are found in the range of /dev/xvdf - /dev/xvdp.  The root volume, /dev/xvda,
+        is an exception.  It's based on the AMI we launched the EC2 instance with, and contains everything
+        needed to boot the instance.
+
+
+    - The first time you use a newly created EBS volume, you must create a filesystem.  You could also
+        create partitions if needed.  To create an ext4 filesystem:
+
+        $ sudo mkfs -t ext4 /dev/xvdf
+
+
+    - After creating the filesystem, we can mount the device:
+
+        $ sudo mkdir /mnt/volume
+        $ sudo mount /dev/xvdf /mnt/volume/
+
+        # See mounted volumes
+        $ df -h
+
+
+    - EBS volumes are independent from your VM.  To see this, we'll save a file to the volume, unmount,
+        and detach the volume.  Afterward, we will attach and mount the volume again, and it will still
+        be there.
+
+        # Create a file
+        $ sudo touch /mnt/volume/testfile
+
+        # Unmount the volume
+        $ sudo umount /mnt/volume/
+
+
+    - Now, update the CloudFormation stack by changing the 'AttachVolume' parameter to no.  This will
+        detach the EBS volume from the EC2 instance.  Now, we can see that only our root device is left:
+
+        # Mounted volume is gone
+        $ sudo fdisk -l
+
+        # Cannot access file
+        $ ls /mnt/volume/testfile
+
+
+    - Now, go back to the CloudFormation stack, and update it again, so the the 'AttachVolume' parameter
+        is yes.  We can remount the drive, and our file is available again.
+
+        # Remount the volume
+        $ sudo mount /dev/xvdf /mnt/volume/
+
+        # The file should be there
+        $ ls /mnt/volume/testfile
