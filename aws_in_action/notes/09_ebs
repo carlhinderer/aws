@@ -162,3 +162,156 @@
 
         # The file should be there
         $ ls /mnt/volume/testfile
+
+
+
+- Tweaking Performance
+
+    - We can performance test hard disks by running read and write tests.  To test the performance of our
+        volumes, we'll use the 'dd' tool, which takes an 'if' source and an 'of' destination.
+
+        # Write 1 MB 1024 times
+        $ sudo dd if=/dev/zero of=/mnt/volume/tempfile bs=1M count=1024 \
+            conv=fdatasync,notrunc
+
+        # Flush caches
+        $ echo 3 | sudo tee /proc/sys/vm/drop_caches
+
+        # Read 1 MB 1024 times
+        $ sudo dd if=/mnt/volume/tempfile of=/dev/null bs=1M count=1024
+
+
+    - EBS performance actually depends on both the EC2 instance type and the EBS volume type.  EC2
+        instances are available optimized for compute, memory, or storage.  EBS offers several IOPS 
+        throughput options.
+
+      Typical scenarios for the different EBS types include:
+
+          - Use 'General Purpose SSD (gp2)' as the default for most workloads with medium load and a 
+              random access pattern.  For example, use this as the boot volume or for all kinds of 
+              applications with low-to-medium I/O load.
+
+          - I/O-intensive workloads access small amounts of data randomly.  'Provisioned IOPS SSD (io1)'
+              offers throughput guarantees, for example, for large and business-critical database 
+              workloads.
+
+          - Use 'Throughput Optimized HDD (st1)' for workloads with sequential I/O and huge amounts of 
+              data, such as Big Data workloads.  Don’t use this volume type for workloads in need of small
+              and random I/O.
+
+          - 'Cold HDD (sc1)' is a good fit when you are looking for a low-cost storage option for data 
+              you need to access infrequently and sequentially.  Don’t use this volume type for workloads 
+              in need of small and random I/O.
+
+          - 'EBS Magnetic HDD (standard)' is an older volume type from a previous generation. It might be 
+               a good option when you need to access your data infrequently.
+
+
+
+- Backing Up Your Data with EBS Snapshots
+
+    - EBS volumes replicate on multiple disks automatically, and are designed for an annual failure rate
+        of 0.1-0.2%.  To plan for a failure of an EBS volume, or for (more likely) human error, we
+        should create regular backups of our volumes.
+
+
+    - A 'snapshot' is a block-level incremental backup that is stored in S3.  If your volume is 5 GB in
+        size, and you use 1 GB, your first snapshot will be around 1 GB in size.  After the first
+        snapshot is created, only diffs will be saved to S3.
+
+
+    - Now, we'll create a snapshot using the CLI.  To do this, we need the EBS 'VolumeId', which we can
+        get from the Output of the CloudFormation template or by running 'describe-volumes'.
+
+        # Get EBS volume id
+        $ aws ec2 describe-volumes --region us-east-1 \
+            --filters "Name=size,Values=5" --query "Volumes[].VolumeId"
+            --output text
+
+        # Create snapshot
+        $ aws ec2 create-snapshot --region us-east-1 --volume-id $VolumeId
+
+        # See status of snapshots being created
+        $ aws ec2 describe-snapshots --region us-east-1 --snapshot-ids $SnapshotId
+
+
+    - Creating a snapshot of an attached, mounted volume is possible, but it can cause problems with 
+        writes that aren't flushed to disk.  We should either detach the volume from the EC2 instance
+        or stop the instance first.
+
+      If we absolutely must create a snapshot while the volume is in use, we can:
+
+        1. Freeze all writes by running 'fsfreeze -f /mnt/volume/' on the VM
+
+        2. Create a snapshot and wait until it reaches the 'Pending' state
+
+        3. Unfreeze writes by running 'fsfreeze -u /mnt/volume/'
+
+        4. Wait until the snapshot is completed
+
+
+    - To restore a snapshot, you must create a new EBS volume based on that snapshot.
+
+        # Create new snapshot from volume
+        $ aws ec2 create-volume --region us-east-1 \
+            --snapshot-id $SnapshotId \
+            --availability-zone us-east-1a
+
+
+    - To clean up:
+
+        # Delete snapshot
+        $ aws ec2 delete-snapshot --region us-east-1 --snapshot-id $SnapshotId
+
+        # Delete new snapshot volume
+        $ aws ec2 delete-volume --region us-east-1 --volume-id $RestoreVolumeId
+
+        Also, delete the CloudFormation stack.
+
+
+
+- Instance store: Temporary block-level storage
+
+    - An 'instance store' provides block-level storage directly attached to the machine hosting your VM.
+        An instance store is part of an EC2 instance, and is only available if the instance is running.
+        It will not persist your data if you stop or terminate the instance.
+
+
+    - You don't pay separately for an instance store.  It is included in the EC2 instance price.
+
+
+    - Don't use an instance store for data that can't be lost.  Use it for caching, temporary processing,
+        or applications that replicate data to several servers (as several databases do).  Chances are
+        high that your favorite NoSQL databases handles data replication at the application level, and
+        instance stores can be used.
+
+
+    - To launch an EC2 instance with an instance store manually:
+
+        > Services: EC2
+          > Launch
+            > Add New Volume
+              > Instance store: 0
+              > Device name: /dev/sdb
+              > Launch
+
+
+    - An example of adding an instance store to an EC2 instance in a CloudFormation template is located
+        at 'templates/09_ebs/instancestore.yaml'.
+
+
+    - Your instance store volume is mounted automatically to '/media/ephemeral0'. If your EC2 instance has
+        more than one instance store volume, 'ephemeral1', 'ephemeral2', and so on will be used.
+
+
+    - If we run the same performance tests as we did with the EBS volume, we'll see a 6x speedup with
+        writes and a 60x speedup with reads.  This may vary depending on actual workloads.
+
+
+    - There is no built-in backup mechanism for instance store volumes.  We can use a combination of 
+        scheduled jobs and S3 to back up our data periodically.
+
+        $ aws s3 sync /path/to/data s3://$YourCompany-backup/instancestore-backup
+
+      However, if you find yourself backing up instance store data, you should probably be using a 
+        different type of storage instead.
