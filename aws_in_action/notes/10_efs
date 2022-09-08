@@ -1,0 +1,184 @@
+-----------------------------------------------------------------------------
+| CHAPTER 10 - EFS: SHARING DATA VOLUMES BETWEEN MACHINES                   |
+-----------------------------------------------------------------------------
+
+- EFS
+
+    - Many legacy applications store data on disk, so using S3 is not possible.  Using block storage may
+        be an option, but volumes can't be shared by multiple machines in parallel.  EFS lets you share
+        data across multiple machines.  It is also replicated between multiple Availability Zones.
+
+
+    - EFS is based on the NFSv4.1 protocol, so you can mount it like any other filesystem.
+
+
+    - Differences between EBS and EFS:
+
+        - An EBS volume is tied to a single AZ (data center) and can only be attached to a single EC2
+            instance in the same data center.
+
+        - EBS volumes are used as the root volumes that contain the OS or for relational database systems
+            to store the state.
+
+        - An instance store consists of a hard drive directly attached to the hardware the VM is running
+            on.  An instance store can be regarded as ephemeral storage, and is therefore used for caching 
+            or for NoSQL databases with embedded data replication only.
+
+        - The EFS filesystem can be used by multiple EC2 instances from different data centers in parallel. 
+            The data on the EFS filesystem is replicated among multiple data centers and remains available 
+            even if a whole data center suffers from an outage.
+
+
+    - There are 2 main components of EFS:
+
+        1. Filesystem = stores your data
+
+        2. Mount target = makes your data accessible
+
+
+    - The filesystem can't be accessed directly.  To do so, you must create an EFS mount target in a
+        subnet.  The mount target provides a network endpoint that you can use to mount the filesystem
+        on an EC2 instance via NFSv4.1. 
+
+      The EC2 instance must be in the same subnet as the EFS mount target, but you can create mount targets 
+        in multiple subnets.
+
+
+    - Linux is a multiuser OS.  Many users can store data and run programs isolated from each other.  Each
+        user can have a home directory, which is usually stored under /home/$username.
+
+        # List all home directories
+        $ ls -d -l /home/*
+
+
+    - If you are using multiple EC2 instances, users will have a separate home folder on each instance.
+        To allow persistent home directories, create an EFS filesystem and mount it on each EC2 instance
+        under /home.  Then, the users' files will be there on each EC2 instance.
+
+
+
+- Creating a Filesystem
+
+    - Like S3, EFS grows with your storage needs, so you don't need to provision storage up front.  To
+        describe an EFS filesystem in CloudFormation:
+
+        Resources:
+          [...]
+          FileSystem:
+            Type: 'AWS::EFS::FileSystem'
+            Properties: {}
+
+
+
+- Creating a Mount Target
+
+    - An EFS mount target makes your data available to EC2 instances via NFSv4.1 in a single AZ.  The EC2
+        instance communicates with the mount target via a TCP/IP network connection.
+
+
+    - You can use a Security Group to allow inbound traffic to a mount target.  The NFS protocol uses
+        port 2049 for inbound communication.  For our example, we'll create 2 security groups:
+
+        1. The client security group will be attached to all EC2 instances that want to mount the
+             filesystem.
+
+        2. The mount target security group allows inbound traffic to port 2049 only for traffic that comes
+             from client security group.  This way, we can have a dynamic fleet of clients who are 
+             allowed to send traffic to the mount targets (this is similar to the bastion host approach).
+
+
+    - We can use CloudFormation to manage an EFS mount target.  The mount target references the filesystem,
+        needs to be linked to a subnet, and is also protected by at least one security group.  We see an
+        example in 'templates/10_efs/template.yaml'.
+
+        Resources:
+          [...]
+          EFSClientSecurityGroup:
+            Type: 'AWS::EC2::SecurityGroup'
+            Properties:
+              GroupDescription: 'EFS Mount target client'
+              VpcId: !Ref VPC
+
+          MountTargetSecurityGroup:
+            Type: 'AWS::EC2::SecurityGroup'
+            Properties:
+              GroupDescription: 'EFS Mount target'
+              SecurityGroupIngress:
+              - FromPort: 2049
+                IpProtocol: tcp
+                SourceSecurityGroupId: !Ref EFSClientSecurityGroup
+                ToPort: 2049
+                VpcId: !Ref VPC
+
+          MountTargetA:
+            Type: 'AWS::EFS::MountTarget'
+            Properties:
+              FileSystemId: !Ref FileSystem
+              SecurityGroups:
+              - !Ref MountTargetSecurityGroup
+              SubnetId: !Ref SubnetA
+
+          MountTargetB:
+            Type: 'AWS::EFS::MountTarget'
+            Properties:
+              FileSystemId: !Ref FileSystem
+              SecurityGroups:
+              - !Ref MountTargetSecurityGroup
+              SubnetId: !Ref SubnetB
+
+
+
+- Mounting the EFS Share on EC2 Instances
+
+    - EFS creates a DNS name for each filesystem with the name:
+
+        $FileSystemID.efs.$Region.amazonaws.com
+
+
+    - AWS suggests the following mount options:
+
+        nfsvers=4.1        # Specifies which version of the NFS protocol to use.
+        rsize=1048576      # Read data block size, in bytes, to be transferred at one time.
+        wsize=1048576      # Write data block size, in bytes, to be transferred at one time.
+        hard               # If the EFS share is down, wait for the share to come back online.
+        timeo=600          # The time in deciseconds the NFS client waits before it retries an NFS request.
+        retrans=2          # The number of times the NFS client retries a request
+
+
+    - The full mount command looks like:
+
+        $ mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,\
+            retrans=2 $FileSystemID.efs.$Region.amazonaws.com:/ $EFSMountPoint
+
+
+    - We can also use the '/ets/fstab' to automatically mount on startup:
+
+        $FileSystemID.efs.$Region.amazonaws.com:/ $EFSMountPoint nfs4 nfsvers=4.1,
+          rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,_netdev 0 0
+
+
+    - To make sure that the DNS name can be resolved and the other side is listening to the port, you
+        can use the following Bash script to wait until the mount target is ready:
+
+        $ while ! nc -z $FileSystemID.efs.$Region.amazonaws.com 2049;
+          do sleep 10; done
+
+
+    - To use the filesystem, you have to mount it on EC2 instances using one of the mount targets you
+        created.  Now, we'll add the EC2 instances to the CloudFormation template.  The command to 
+        mount the filesystem will be put into UserData.
+
+
+    - The CloudFormation template is now complete.  It contains:
+
+        - The Filesystem (EFS)
+        - 2 EFS mount targets in SubnetA and SubnetB
+        - Security groups to control traffic to the mount targets
+        - EC2 instances in both subnets, including a UserData script to mount the filesystem
+
+
+    - To create the stack:
+
+        $ aws cloudformation create-stack --stack-name efs \
+            --template-url https://s3.amazonaws.com/awsinaction-code2/\
+            chapter10/template.yaml
