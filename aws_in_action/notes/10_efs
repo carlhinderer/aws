@@ -182,3 +182,94 @@
         $ aws cloudformation create-stack --stack-name efs \
             --template-url https://s3.amazonaws.com/awsinaction-code2/\
             chapter10/template.yaml
+
+
+
+- Sharing Files Between EC2 Instances
+
+    - Now, we should be able to share files in the home directories between 2 EC2 instances.  To get
+        the public IP addresses of the EC2 instances we created:
+
+        $ aws cloudformation describe-stacks --stack-name efs-example --query "Stacks[0].Outputs"
+
+
+    - Now, we can log into EC2 instance A:
+
+        $ ssh -i mykey.pem ec2-user@$PublicIpAddress
+
+
+    - Now, open a second connection to EC2 instance B:
+
+        $ ssh -i mykey.pem ec2-user@$PublicIpAddress
+
+
+    - Both users should be in the '/home/ec2-user' directory.
+
+        $ pwd
+        $ ls
+
+
+    - Create a file on one machine, and it should be visible on both instances:
+
+        $ touch i-was-here
+        $ ls
+
+
+
+- Tweaking Performance
+
+    - We can use the same simple performance test we used when testing the EBS volume:
+
+        # Write 1 MB 1024 times
+        $ sudo dd if=/dev/zero of=/home/ec2-user/tempfile bs=1M count=1024 \
+            conv=fdatasync,notrunc
+
+        # Flush caches
+        $ echo 3 | sudo tee /proc/sys/vm/drop_caches
+
+        # Read 1 MB 1024 times
+        $ sudo dd if=/home/ec2-user/tempfile of=/dev/null bs=1M count=1024
+
+
+    - So far, we've been using the 'General Purpose' performance mode, which is fine for most workloads.
+        However, sometimes EFS is used to store massive amounts of data for analytics.  For analytics,
+        latency is not important, but we want to optimize for throughput.
+
+      Optimizing for throughput is achieved by using 'Max I/O' performance mode.  Note that to change
+        the performance mode, we must create a new filesystem.
+
+
+
+- Monitoring a Filesystem
+
+    - CloudWatch can be used to watch various EFS metrics, including:
+
+        - BurstCreditBalance = The current credit balance
+
+        - PermittedThroughput = Current throughput
+
+        - Read/Write/Metadata/TotalIOBytes = Detail of performance in bytes
+
+        - PercentIOLimit = How close you are to hitting the I/O limit
+
+
+    - If you're trying to determine whether to switch to 'Max I/O', you can create a CloudWatch alert
+        that tells you whether the 'PercentIOLimit' is at 100% more than half the time.
+
+
+
+- Backing Up Your Data
+
+    - EFS stores data on multiple disks in multiple availability zones, so the risk of data loss from 
+        hardware is low.  However, you may want to back up data to avoid application bugs or human error.
+
+
+    - EFS doesn't provide a native backup solution, but your could create your own backup solution:
+
+        - Sync the files to S3 from time to time
+
+        - Sync the files to an EBS volume from time to time, and create a snapshot after each sync
+
+        - Sync the files up to another EFS filesystem
+
+        - Use a third party backup solution
