@@ -112,3 +112,144 @@
         Additional storage for database snapshots (100 GB)     $9.50 USD
         ---------------------------------------------------------------------
         Total                                                  $81.13 USD
+
+
+
+- Importing Data into a Database
+
+    - To import a database from your local environment into RDS, follow these steps:
+
+        1. Export the local database
+        2. Start a VM in the same region and VPC as the RDS database
+        3. Upload the DB dump to the VM
+        4. Run an import of the DB dump to the RDS database on the virtual server
+
+
+    - For instace, to export a MySQL database:
+
+        # Export all databases
+        $ mysqldump -u $UserName -p --all-databases > dump.sql
+
+        # Export specific database
+        $ mysqldump -u $UserName -p $DatabaseName > dump.sql
+
+
+    - When migrating a huge DB to AWS with minimal downtime, the AWS DMS (Database Migration Service) 
+        can be very helpful.
+
+
+    - Before we import the database, we can view our WordPress instance, and see that no posts have been
+        created.
+
+        # Get URL for WordPress instance
+        $ aws cloudformation describe-stacks --stack-name wordpress \
+            --query "Stacks[0].Outputs[0].OutputValue" --output text
+
+
+    - First, we'll get the public IP address of 1 of the 2 EC2 instances we created:
+
+        $ aws ec2 describe-instances --filters "Name=tag-key,\
+            Values=aws:cloudformation:stack-name Name=tag-value,\
+            Values=wordpress" --output text \
+            --query "Reservations[0].Instances[0].PublicIpAddress"
+
+
+    - Then, we'll SSH into the machine:
+
+        $ ssh -i $PathToKey/mykey.pem ec2-user@$PublicIpAddress
+
+
+    - We'll download a MySQL database dump of a WordPress blog.  The dump contains a blog post and a few
+        comments.
+
+        $ wget https://s3.amazonaws.com/awsinaction-code2/chapter11/wordpress-import.sql
+
+
+    - Now, we're ready to import the MySQL database dump to the RDS instance.  We'll use the database
+        connection details we obtained above.
+
+        # Get database connection details
+        $ aws rds describe-db-instances --query "DBInstances[0].Endpoint"
+
+        # Import the MySQL database, password is 'wordpress'
+        $ mysql --host $DBHostName --user wordpress -p < wordpress-import.sql
+
+
+    - Now, we can refresh the WordPress page, and we'll see the imported posts and comments.
+
+
+
+- Automated Backups
+
+    - RDS is a managed service, but we still need to make backups in case something happens to our data
+        or we need to duplicate it to another region.  RDS offers both maunal and automated snapshots.
+
+
+    - To configure automated snapshots, we can set the 'BackupRetentionPeriod' on the VM between 1-35
+        (the number of days the snapshot will be retained).  Automated snapshots are created once a
+        day.  They require all disk activity to be briefly frozen, so we should pick a time of low
+        usage to run them.
+
+
+    - This changes the automated backup to run from 5:00-6:00 UTC, and updates the retention period to
+        3 days:
+
+        $ aws cloudformation update-stack --stack-name wordpress --template-url \
+            https://s3.amazonaws.com/awsinaction-code2/chapter11/ \
+            template-snapshot.yaml \
+            --parameters ParameterKey=KeyName,UsePreviousValue=true \
+            ParameterKey=AdminPassword,UsePreviousValue=true \
+            ParameterKey=AdminEMail,UsePreviousValue=true
+
+
+    - If we want to disable automated snapshots, we can set the retention period to 0.
+
+
+
+- Manual Snapshots
+
+    - You can also trigger maunal snapshots whenever needed, like before you release a new verions of your
+        application, migrate a schema, or perform some other major change.
+
+        # Create a snapshot
+        $ aws rds create-db-snapshot --db-snapshot-identifier \
+            wordpress-manual-snapshot \
+            --db-instance-identifier $DBInstanceIdentifier
+
+        # Check the current status of the snapshot
+        $ aws rds describe-db-snapshots --db-snapshot-identifier wordpress-manual-snapshot
+
+
+    - If you want to keep an automated snapshot beyond the retention period, you can copy it into a
+        manual shapshot.
+
+        $ aws rds copy-db-snapshot \
+            --source-db-snapshot-identifier $SnapshotId \
+            --target-db-snapshot-identifier wordpress-copy-snapshot
+
+
+
+- Restoring a Database
+
+    - If you restore a database from an automated or manual snapshot, a new database will be created
+        based on the snapshot.  You can't restore a snapshot to an existing database.
+
+
+    - To create a new database in the same VPC as our WordPress platform, we need to find the existing
+        database's subnet group.
+
+        $ aws cloudformation describe-stack-resource \
+            --stack-name wordpress --logical-resource-id DBSubnetGroup \
+            --query "StackResourceDetail.PhysicalResourceId" --output text
+
+
+    - Now, we can create a new database based on the manual snapshot we took earlier:
+
+        $ aws rds restore-db-instance-from-db-snapshot \
+            --db-instance-identifier awsinaction-db-restore \
+            --db-snapshot-identifier wordpress-manual-snapshot \
+            --db-subnet-group-name $SubnetGroup
+
+
+    - Now, a new database named 'awsinaction-db-restore' has been created.  We can now switch our
+        WordPress application to use the new database.
