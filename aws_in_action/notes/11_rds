@@ -1,0 +1,114 @@
+-----------------------------------------------------------------------------
+| CHAPTER 11 - RDS: RELATIONAL DATABASE SERVICE                             |
+-----------------------------------------------------------------------------
+
+- RDS
+
+    - If you want a relational DB on AWS, you have 2 options:
+
+        1. Use RDS
+        2. Run the RDBMS yourself on EC2 instances
+
+
+    - RDS DBMS Options:
+
+        - PostgreSQL
+        - MySQL
+        - MariaDB
+        - Oracle
+        - Sql Server
+        - Amazon Aurora
+
+
+
+- Starting a MySQL Database
+
+    - We'll run a MySQL database on RDS in order to host a WordPress instance.  We'll use the same
+        CloudFormation stack we used in Chapter 2.
+
+        $ aws cloudformation create-stack --stack-name wordpress --template-url \
+            https://s3.amazonaws.com/awsinaction-code2/chapter11/template.yaml \
+            --parameters ParameterKey=KeyName,ParameterValue=mykey \
+            ParameterKey=AdminPassword,ParameterValue=test1234 \
+            ParameterKey=AdminEMail,ParameterValue=your@mail.com
+
+
+    - These are the attributes that are specified when a new RDS instance is created:
+
+        AllocatedStorage         # Size of your DB (in GB)
+        DBInstanceClass          # Size (instance type) of underlying VM
+        Engine                   # Database engine (ie MySQL)
+        DBName                   # Identifier for DB
+        MasterUsername           # Name for master user
+        MasterUserPassword       # Password for master user
+
+
+    - It's possible to make an RDS instance publicly accessible, but this is generally not recommended.
+        Instead, an RDS instance should only be accessible within a VPC.
+
+
+    - To connect to an RDS instance, you need an EC2 instance running in the same VPC.  First, connect to
+        the EC2 instance.  Then, you can connect to the RDS instance.
+
+        Resources:
+          # [...]
+          DatabaseSecurityGroup:
+            Type: 'AWS::EC2::SecurityGroup'
+            Properties:
+              GroupDescription: 'awsinaction-db-sg'
+              VpcId: !Ref VPC
+              SecurityGroupIngress:
+              - IpProtocol: tcp
+                FromPort: 3306
+                ToPort: 3306
+                SourceSecurityGroupId: !Ref WebServerSecurityGroup
+
+          Database:
+            Type: 'AWS::RDS::DBInstance'
+            DeletionPolicy: Delete
+            Properties:
+              AllocatedStorage: 5
+              BackupRetentionPeriod: 0
+              DBInstanceClass: 'db.t2.micro'
+              DBName: wordpress
+              Engine: MySQL
+              MasterUsername: wordpress
+              MasterUserPassword: wordpress
+              VPCSecurityGroups:
+              - !Sub ${DatabaseSecurityGroup.GroupId}
+              DBSubnetGroupName: !Ref DBSubnetGroup
+            DependsOn: VPCGatewayAttachment
+
+          DBSubnetGroup:
+            Type: 'AWS::RDS::DBSubnetGroup'
+            Properties:
+              Description: DB subnet group
+              SubnetIds:
+              - Ref: SubnetA
+              - Ref: SubnetB
+
+
+    - Once our RDS instance is launched, AWS handles most of the tasks necessary to operate your DB in
+        a secure and reliable way.  The only things we need to do are:
+
+        1. Monitor your DB's available storage, and increase the allocated storage as needed.
+
+        2. Monitor your DB's performance and make sure you increase I/O and CPU as needed.
+
+
+    - Once the CloudFormation stack creation is complete, we can get the details to connect to our DB.
+
+        # Make sure stack creation is complete
+        $ aws cloudformation describe-stacks --stack-name wordpress
+
+        # Get connection details for DB
+        $ aws rds describe-db-instances --query "DBInstances[0].Endpoint"
+
+
+    - For an idea of how much the monthly price is for an RDS instance:
+
+        Database instance db.m3.medium                         $65.88 USD
+        50 GB of general purpose (SSD)                         $5.75 USD
+        Additional storage for database snapshots (100 GB)     $9.50 USD
+        ---------------------------------------------------------------------
+        Total                                                  $81.13 USD
