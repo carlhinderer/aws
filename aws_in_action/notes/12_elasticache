@@ -192,3 +192,177 @@
 
 
     - Now, we can delete the stack to clean up.
+
+
+
+- Cache Deployment Options
+
+    - Factors in deciding which key-value store to use:
+
+                          Memcached    Redis: single node    Redis: cluster     Redis: cluster 
+                                                               mode disabled      mode enabled
+                          ------------------------------------------------------------------------
+        Backup/Restore    no           yes                   yes                yes
+        Replication       no           no                    yes                yes
+        Sharding          yes          no                    no                 yes
+
+
+    - Memcached: cluster
+
+        - An ElastiCache for a Memcached cluster consists of 1-20 nodes.
+        - Sharding is implemented by the Memcached client using consistent hashing algorithm.
+        - If a node fails, the node is replaced but data is lost.
+
+
+    - Redis: single node cluster
+
+        - Can create, then restore, backups
+        - Single point of failure, so avoid for Production systems
+
+
+    - Redis: cluster, with cluster mode disabled
+
+        - Supports backups and replication, but no sharding
+        - One shard consisting of a primary and up to 5 replicas
+        - Use if all your data fits onto a single node
+
+
+    - Redis: cluster, with cluster mode enabled
+
+        - Supports backups, replication, and sharding
+        - Up to 15 shards per cluster, each with a primary and up to 5 replicas
+        - Failover speed is much faster, since DNS isn't required (config endpoint is provided)
+
+
+
+- Controlling Cache Access
+
+    - Access control is similar to RDS, except the the cache engines themselves have very limited features
+        for controlling access to the data itself.
+
+
+    - ElastiCache is protected by 4 layers:
+
+        1. IAM = controls which users can administer the cluster
+
+        2. Security Groups = restricts incoming and outgoing traffic
+
+        3. Cache engine = Redis has AUTH command, Memecached doesn't handle authentication,
+                            neither supports authorization
+
+        4. Encryption = at rest and at transit
+
+
+    - To control traffic as tight as possible, we create 2 security groups rather than whitelisting
+        IP addresses.  The client security group will be attached to all VMs communicating with the cache
+        cluster.  The cache cluster security group allows inbound traffic on port 6379 only for traffic
+        from the client security group.
+
+        Resources:
+          # [...]
+          ClientSecurityGroup:
+            Type: 'AWS::EC2::SecurityGroup'
+            Properties:
+              GroupDescription: 'cache-client'
+              VpcId: !Ref VPC
+          CacheSecurityGroup:
+            Type: 'AWS::EC2::SecurityGroup'
+            Properties:
+              GroupDescription: cache
+              VpcId: !Ref VPC
+              SecurityGroupIngress:
+              - IpProtocol: tcp
+                FromPort: 6379
+                ToPort: 6379
+                SourceSecurityGroupId: !Ref ClientSecurityGroup
+
+
+
+- Installing the Sample Application
+
+    - Discourse is an open source application for creating forums for communities.  It is written in Rails.
+        It requires a Postgres database as the main data store, and uses Redis to cache data and process
+        transient data.
+
+
+    - Our application will use a template ('templates/12_elasticache/template.yaml').  We'll need these
+        components:
+
+        - VPC = network configuration
+        - Cache = security group, subnet group, cache cluster
+        - Database = security group, subnet group, database instance
+        - VM = security group, EC2 instance
+
+
+    - The VM definition contains a UserData script that configures and sets up everything needed to run
+        Discourse.
+
+
+    - Now, let's create the CloudFormation stack:
+
+        # Create the stack
+        $ aws cloudformation create-stack --stack-name discourse \
+            --template-url https://s3.amazonaws.com/awsinaction-code2/chapter12/template.yaml \
+            --parameters ParameterKey=KeyName,ParameterValue=mykey \
+            "ParameterKey=AdminEmailAddress,ParameterValue=your@mail.com"
+
+        # Check the status of stack creation
+        $ aws cloudformation describe-stacks --stack-name discourse --query "Stacks[0].StackStatus"
+
+        # Get the public IP address of the EC2 instance
+        $ aws cloudformation describe-stacks --stack-name discourse \
+            --query "Stacks[0].Outputs[0].OutputValue"
+
+
+    - Now, we can navigate to the Discourse application.
+
+
+
+- Monitoring a Cache
+
+    - ElastiCache nodes send useful metrics.  The most important metrics to watch are:
+
+        CPUUtilization
+        SwapUsage
+        Evictions         # Number of non-expired items in the cache evicted due to memory limit
+        ReplicationLag    # How far behind read replicas get
+
+
+    - Queueing theory tells us that wait time increases exponentially as utilization of a resource
+        increases linearly.  When we go from 0% CPU utilization to 60%, wait time doubles.  If we go
+        to 80%, it triples.
+
+      So, if you wait time is 100 ms at 0% utilization, it goes to 300 ms at 80% utilization, which is
+        already slow for an ecommerce site.
+
+
+    - If we have a high number of evictions, we likely need more memory.  By default, Redis only evicts
+        keys with a TTL.  This is called 'volatile-lru'.
+
+      Other strategies are available:
+
+        allkeys-lru        # Remove the least recently used key among all keys
+
+        volatile-random    # Remove a random key among keys with TTL
+
+        allkeys-random     # Remove a random key among all keys
+
+        volatile-ttl       # Remove the key with the shortest TTL
+
+        noeviction         # Do not evict any key
+
+
+
+- Tweaking Cache Performance
+
+    - Your cache can become a bottleneck if it can no longer handle the requests with low latency.
+        There are 3 strategies for tweaking performance of the cluster:
+
+        1. Selecting the right cache node type (might need more CPU, memory, network)
+
+        2. Selecting the right deployment options (might need shards or read replicas)
+
+        3. Compressing your data (can shrink the amount of data being transferred and stored)
+
+
+    - Keep in mind that Redis is single-threaded, and will only use one core at a time.
