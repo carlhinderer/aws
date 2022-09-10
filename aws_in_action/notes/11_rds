@@ -253,3 +253,136 @@
 
     - Now, a new database named 'awsinaction-db-restore' has been created.  We can now switch our
         WordPress application to use the new database.
+
+
+
+- Copying a Database to Another Region
+
+    - To copy our database to another region using our snapshot:
+
+        $ aws rds copy-db-snapshot --source-db-snapshot-identifier \
+            arn:aws:rds:us-east-1:$AccountId:snapshot:\
+            wordpress-manual-snapshot --target-db-snapshot-identifier \
+            wordpress-manual-snapshot --region eu-west-1
+
+
+    - To clean up, we need to delete all snapshots, database instances, and the WordPress CloudFormation
+        stack.
+
+
+
+- Controlling Access to a Database
+
+    - It's the customer's responsibility to specify rules controlling access to our data and the RDS
+        database.  There are 3 layers that control access to an RDS database:
+
+        1. Configuration access management
+
+             IAM policies control access to the configuration of network access management and the
+               configuration of the database.
+
+        2. Network access management
+
+             Firewall rules control access to the database on the network level.  We use security groups
+               for the database instance and ACLs on subnets.
+
+        3. Database access management
+
+             User and access management from the database system itself controls access to data.
+
+
+
+- Controlling access to the configuration of an RDS database
+
+    - Access to the RDS service is controlled using the IAM service.  IAM controls access to 
+        creating, updating, and deleting an RDS instance.
+
+
+    - IAM doesn't manage access inside the database - that's the database engine's job.
+
+
+    - This creates an IAM policy that allows access to all RDS configuration and management actions.
+        You can use this policy by only attaching it to trusted IAM users and groups.
+
+        {
+          "Version": "2012-10-17",
+          "Statement": [{
+            "Sid": "Stmt1433661637000",
+            "Effect": "Allow",
+            "Action": "rds:*",
+            "Resource": "*"
+          }]
+        }
+
+
+    - This policy denies all destructive acts in order to prevent data loss by human failure.
+
+        {
+          "Version": "2012-10-17",
+          "Statement": [{
+            "Sid": "Stmt1433661637000",
+            "Effect": "Deny",
+            "Action": ["rds:Delete*", "rds:Remove*"],
+            "Resource": "*"
+          }]
+        }
+
+
+
+- Controlling Network Access to an RDS Database
+
+    - An RDS database is linked to security groups.  Each security group consists of rules for a firewall
+        controlling inbound and outbound database traffic.
+
+
+    - Here is the security group we used for our WordPress database.  Inbound connections to port 3306
+        (the default MySQL port) are only allowed from VMs linked to the security group
+        'WebServerSecurityGroup'.
+
+        DatabaseSecurityGroup:
+          Type: 'AWS::EC2::SecurityGroup'
+          Properties:
+            GroupDescription: 'awsinaction-db-sg'
+            VpcId: !Ref VPC
+            SecurityGroupIngress:
+            - IpProtocol: tcp
+              FromPort: 3306
+              ToPort: 3306
+              SourceSecurityGroupId: !Ref WebServerSecurityGroup
+
+
+
+- Controlling Data Access
+
+    - A database engine also implements access control itself.  For example, you typically define a user
+        for each application and grant rights to access and manipulate tables as needed.
+
+
+    - Typical use cases for database access control include:
+
+        - Limiting writes only to certain users
+        - Limiting access to specific tables only to certain users
+        - Limiting access to table to isolate different applications (ie different customers)
+
+
+
+- Relying on a Highly Available Database
+
+    - RDS lets you launch HA (High Availability) databases.  An HA RDS database has 2 database instances,
+        a master and a standby.
+
+
+    - All clients send requests to the master database.  Data is replicated between the master and standby
+        synchronously.  If the master becomes unavailable due to hardware or network failures, RDS starts
+        the failover process.  The standby becomes the master, and DNS is updated.  This does not require
+        human intervention.
+
+
+    - This is strongly recommended for all databases that handle production workloads.  We can turn it off
+        on test databases to save money.
+
+
+    - To enable high-availability for an RDS database, we can update our CloudFormation stack to use a
+        slightly different template.  This is in 'templates/11_rds/template-multiaz.yaml'.  Note that
+        the 2 instances are in different availability zones (data centers), which is why this feature
+        is called 'Multi AZ'.
