@@ -386,3 +386,62 @@
         slightly different template.  This is in 'templates/11_rds/template-multiaz.yaml'.  Note that
         the 2 instances are in different availability zones (data centers), which is why this feature
         is called 'Multi AZ'.
+
+
+
+- Tweaking Database Performance
+
+    - The easiest way to scale a database is vertically.  To do this, you can increase CPU, memory, and/or
+        storage.  The largest RDS instance has 96 CPUs and 384 GB of RAM.
+
+
+    - To increase the RDS instance's resources, we can change the instance type using a CloudFormation
+        template, the CLI, the management console, or SDK's.
+
+
+    - Like EBS, RDS offers 3 disk types:
+
+        1. General purpose (SSD)
+        2. Provisioned IOPs (SSD)
+        3. Magnetic
+
+      SSDs should be used for Production workloads.  To guarantee a high level of read and write
+        throughput, you should use Provisioned IOPs.
+
+
+    - A database suffering from too many read requests can be scaled horizontally by adding additional
+        read replicas.  RDS supports read replication for MySQL, MariaDB, and PostgreSQL databases.
+
+      When a read replica is created, these steps are triggered in the background:
+
+        1. Create a snapshot from the source database (the master database).
+
+        2. Launch a new database based on that snapshot.
+
+        3. Activate replication between the master and read-replication databases.
+
+        4. Create an endpoint for SQL read requests to the read-replication database.
+
+
+    - To create a read replica:
+
+        $ aws rds create-db-instance-read-replica \
+            --db-instance-identifier awsinaction-db-read \
+            --source-db-instance-identifier $DBInstanceIdentifier
+
+
+    - To promote a read replica to master:
+
+        $ aws rds promote-read-replica --db-instance-identifier awsinaction-db-read
+
+
+
+- Monitoring a Database
+
+    - Some important RDS metrics to monitor:
+
+        FreeStorageSpace
+        CPUUtilization
+        FreeableMemory
+        DiskQueueDepth      # Number of outstanding requests to disk
+        SwapUsage
