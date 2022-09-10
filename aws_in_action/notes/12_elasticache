@@ -1,0 +1,194 @@
+-----------------------------------------------------------------------------
+| CHAPTER 12 - ELASTICACHE: CACHING DATA IN MEMORY                          |
+-----------------------------------------------------------------------------
+
+- Caching Data in Memory
+
+    - If we imagine a popular mobile game with millions of players, where each player's scores and ranks
+        are updated and read frequently, the read and write pressure to the database will be extremely
+        high.  We can scale the database, but this may not improve latency or cost.
+
+
+    - Many gaming companies use an in-memory data store like Redis for both caching and ranking players.
+        The Redis 'SortedSet' can be used for the leaderboard, which will automatically sort data based
+        on the player's score.
+
+      Other things that require heavy reads, like player profiles and game-level information can also
+        be cached.  This frees the database from heavy read traffic.
+
+
+    - In this solution, both the RDBMS and the cache will store updates to the leaderboard.
+
+        Application <-> Cache <-> Data Store
+
+
+
+- Lazy-Loading
+
+    - If we 'lazy-load' the cache, then we populate it on demand.  If the leaderboard is not in the cache,
+        we fetch it from the database.  Any subsequent request will result in a cache hit, until the TTL
+        is exceeded.
+
+
+    - Additionally, we could have a cron job running in the background that queries the leaderboard from 
+        the relational database every minute and puts the result in the cache to populate the cache in 
+        advance.
+
+
+    - The lazy-loading strategy works like this:
+
+        1. The application writes data to the data store.
+
+        2. If the application wants to read, it sends the request to the cache.
+
+        3. If the cache does not contain the data, the application reads from the data store directly,
+             puts the value in the cache, and also returns the value to the client.
+
+        4. If the application wants to read the value again, it sends the request to the cache.
+
+
+    - The downside is that the cache can contain stale data, so the TTL must be chosen carefully.  Even a
+        TTL of a few seconds can make a big change in the load on the DB.  You'll need to performance
+        test your application to get this right.
+
+
+
+- Write-Through
+
+    - The 'write-through' strategy is implemented differently:
+
+        1. The application writes data to the data store and the cache.  (Or the cache is filled
+             asynchronously with a cron job, Lambda function, or the application itself).
+
+        2. If the application wants to read the data, it makes a request to the caching layer, which 
+             contains the data.
+
+        3. The value is returned to the client.
+
+
+    - The downside is that all of your data may not fit in the cache.  When your cache overflows memory,
+        it will evict entries or stop accepting new data.  Both of these will make your application stop
+        working.
+
+
+    - One popular strategy for evicting cache entries is the LRU strategy.  In this case, we must store
+        the timestamp for when each entry was last accessed.  The data with the oldest timestamp is
+        chosen for eviction.
+
+
+
+- Implementing the Leaderboard
+
+    - Your mobile application has a leaderboard that is accessed very frequently.  The query is:
+
+        SELECT id, nickname
+        FROM player
+        ORDER BY score DESC
+        LIMIT 10
+
+
+    - One approach in Redis is to store the query results as:
+
+        Key: Hashed value of query using md5 or sha256 (String)
+        Value: Results of query (String)
+
+
+    - To fetch the leaderboard, we read from the cache using the hashed value of the query.  If it isn't
+        there, we read it from the DB, insert it into the cache, then return it.
+
+
+    - With Redis, we could also use a data structure like a 'SortedSet'.  We just store players and their
+        scores, and retrieving the ranked data is very efficient.
+
+
+
+- AWS ElastiCache
+
+    - The 2 most common in-memory key-value stores are Redis and Memcached.  AWS Elasticache offers
+        both.
+
+                                      Memcached     Redis
+        -----------------------------------------------------
+        Data types                    simple        complex
+        Data manipulation commands    12            125
+        Server-side scripting         no            yes (Lua)
+        Transactions                  no            yes
+        Multi-threaded                yes           no
+
+
+    - Since ElastiCache offers Redis and Memcached clsuters as a service, AWS covers the following 
+        aspects for you:
+
+        1. Installation
+        2. Administration (and automatic failover for Redis)
+        3. Monitoring
+        4. Patching
+        5. Backups (for Redis)
+        6. Replication (for Redis)
+
+
+
+- Creating a Cache Cluster
+
+    - We have a simple CloudFormation template for a one-node Redis cluster in 
+        'templates/12_elasticache/minimal.yaml'.
+
+
+    - The required properties are:
+
+        Engine                      # redis or memcached
+        CacheNodeType               # Type of EC2 instance
+        NumCacheNodes               # 1 for single-node cluster
+        CacheSubnetGroupName        # Subnet to put cache into
+        VpcSecurityGroupIds         # The security groups we want to attach to the cluster
+
+
+    - Like other resources such as RDS instances, ElastiCache nodes only have private IP addresses, so
+        you can't connect to the directly over the internet.  To test the Redis cluster, you can create
+        an EC2 instance in the same VPC as the cluster, then connect from the VM.
+
+      We'll add this EC2 instance to the 'minimal.yaml' template.
+
+
+    - We'll create the CloudFormation template, with these parameters:
+
+        KeyName              # Use mykey
+        SubnetA              # Pick the first subnet
+        SubnetB              # Pick the second subnet
+        VPC                  # Default VPC
+
+
+
+- Testing the Cache Cluster
+
+    - Now, we can go to the outputs for the CloudFormation template, and we'll see the IP address for
+        our EC2 instance.
+
+        # SSH into EC2 instance
+        $ ssh -i mykey.pem ec2-user@$VMInstanceIPAddress
+
+
+    - Once we're logged in, we'll install the Redis CLI and connect to the Redis cluster.
+
+        # Install Redis CLI
+        $ sudo yum -y install --enablerepo=epel redis
+
+        # Connect to the Redis cluster
+        $ redis-cli -h $CacheAddress
+
+
+    - Now, we can test Redis:
+
+        > SET key1 value1
+
+        > GET key1
+        > GET key2
+
+        > SET key3 value3 EX 5         # Expires after 5 seconds
+        > GET key3                     # Within 5 seconds
+        > GET key3                     # Try again after 5 seconds
+
+        > quit
+
+
+    - Now, we can delete the stack to clean up.
