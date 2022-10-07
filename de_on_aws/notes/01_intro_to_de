@@ -1,0 +1,124 @@
+-----------------------------------------------------------------------
+| CHAPTER 1 - INTRO TO DATA ENGINEERING                               |
+-----------------------------------------------------------------------
+
+- Big Data
+
+    - A few decades ago, an organization might have had a single database.  Now, organizations have
+        hundreds to thousands, along with a data warehouse and perhaps a data lake.
+
+
+    - These data stores are being fed from an increasing number of data sources:
+
+        - Transaction data
+        - Web server log files
+        - IoT and other sensors
+        - Social media
+        - Many other sources
+
+
+    - Organizations today are in one of 3 states:
+
+        1. They have an effective data analytics and ML program that differentiates them from their
+             competitors.
+
+        2. They are conducting proof-of-concept projects to evaluate how analytics and ML programs
+             can give them a competitive advantage.
+
+        3. They are losing sleep worrying about their competitors gaining an advantage over them.
+
+
+
+- The Challenges of Ever-Growing Datasets
+
+    - As the number of databases at companies grew, they built data warehousing systems to ingest data
+        from multiple siloed databases into a central location for analytics.
+
+      However, due to the expense of those systems, there were limitations on how much data could be
+        stored.  Some datasets were excluded, and only aggregate data was stored for others.  Data would
+        only be kept for a limited period of time.
+
+
+    - As organizations grew, multiple data warehouses and data marts would be implemented for different 
+        business units, and organizations still lacked a central source of truth.  Also, semi-structured
+        and unstructured data became more common, and DW tools didn't have a way to deal with them.
+
+
+    - As a result, new technologies were invented to deal with large amounts of data and new data types.
+        Hadoop was created in the early 2000s at Yahoo to help them build their search index.  Hadoop
+        and MapReduce became a popular way for all types of companies to store and process large datasets.
+
+      However, running a Hadoop cluster was a complex and expensive operation requiring specialized
+        skills.
+
+
+    - The next evolution for data processing was Spark, a framework for working with big data that
+        gained huge increases in performance by doing most processing in memory.  Today, Spark is the
+        gold standard for processing large datasets.
+
+
+    - Along with Spark, the concept of data lakes started to rise.  This approach uses low-cost object
+        storage as a physical layer for a variety of data types, provides a catalog of all the datasets,
+        and makes that data available or processing with a wide variety of tools including Spark.
+
+
+    - AWS uses this definition for data lakes:
+
+        A data lake is a centralized repository that allows you to store all your structured and 
+          unstructured data at any scale. You can store your data as-is, without having to first structure 
+          the data, and run different types of analytics — from dashboards and visualizations to big data 
+          processing, real-time analytics, and machine learning to guide better decisions.
+
+
+
+- Data Engineers - The Big Data Enablers
+
+    - For a simple example, a sales manager for a consumer goods organization wants to better understand
+        which alternative products a customer considers before buying their product.  In addition, they
+        want to predict demand using external factors such as weather.
+
+      To accomplish this, we'll have to bring together data from multiple different sources:
+
+          - Customer, Product, other relational DBs
+          - Web server logs from the consumer-facing storefront
+          - Third-party sales data from online marketplaces
+          - Other third-party datasets like weather
+
+
+    - Data Engineers
+
+        - Design, implement, and maintain pipelines that ingest raw data into a storage platform
+            (Batch or Real-time streaming ingestion)
+
+        - Transform the data to be optimized for analytics
+            (Verify quality, add metadata to catalog, manage lifecycle of code)
+
+        - Make the data available for various data consumers using their tool of choice
+
+        - Uses tools such as Spark, Kafka, and Presto to build pipelines and optimize data for analytics
+
+
+    - Data Scientists
+
+        - Draw complex insights and make predictions based on various datasets using ML and AI
+
+        - Skills in CS, statistics, analytics, and math
+
+        - ie Use past sales data and weather information to predict top-selling categories for future dates
+
+
+    - Data Analysts
+
+        - Examine and combine multiple datasets to help business make informed decisions
+
+        - Data scientist finds non-obvious patterns, Data Analyst uses well-structured patterns
+
+        - ie Run complex queries against joined datasets to find alternate products bought by customer
+
+
+
+- Benefits of the Cloud
+
+    - S3 offers essentially unlimited scalability at low cost, yet provides durability and availability
+        on-premises data centers struggle to match.  Today, it is the physical storage layer for
+        thousands of data lakes.
