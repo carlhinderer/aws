@@ -1,0 +1,121 @@
+-----------------------------------------------------------------------------
+| CHAPTER 13 - DYNAMODB: PROGRAMMING A NOSQL DATABASE SERVICE               |
+-----------------------------------------------------------------------------
+
+- NoSQL
+
+    - Horizontally scaling a RDBMS is difficult, since ACID guarantees require 2PC.  NoSQL databases relax
+        some of these guarantees.
+
+
+    - The 4 types of NoSQL databases:
+
+        1. Document
+        2. Graph
+        3. Columnar
+        4. Key/Value Store
+
+
+    - DynamoDB is a key-value store with document support.  It is fully-managed, proprietary, and closed
+        source.  It is highly available and highly durable.  It easily scales to tens of thousands of
+        requests per second.
+
+
+
+- Operating DynamoDB
+
+    - With DynamoDB, you don't need to worry about installation, updates, machines, storage, or backups.
+        This is why:
+
+        1. The software is maintained by AWS.  You can't download, install, or update it.
+
+        2. DynamoDB runs on a fleet of machines operated by AWS.  All you need to do is grant permissions
+             to users on your tables with IAM.
+
+        3. DynamoDB replicates your data among multiple machines and across multiple data centers.  The
+             backup is already built into the database.
+
+
+    - Note that AWS now has a backup service for DynamoDB tables, which can be used to protect against
+        user error.
+
+
+    - DynamoDB does not run in your VPC.  It is only accessible via the AWS API.  To access it, we either
+        use a NAT gateway or set up a VPC endpoint and use that to access DynamoDB from private subnets.
+
+
+
+- DynamoDB for Developers
+
+    - DynamoDB is a key-value store that organizes your data into tables.  For example, you can have one
+        table to store your users, and another table to store tasks.  The items contained in the table
+        are identified by a PK.
+
+
+    - A table can also maintain secondary indexes for data lookup in addition to the PK.
+
+
+    - Each DynamoDB table has a name and organizes a collection of items. 
+
+        - An 'item' is a collection of attributes, and an 'attribute' is a name-value pair. 
+
+        - The attribute value can be scalar (number, string, binary, Boolean), multivalued (number set, 
+            string set, binary set), or a JSON document (object, array). 
+
+        - Items in a table aren’t required to have the same attributes; there is no enforced schema.
+
+
+    - You can create a table with the Management Console, CloudFormation, SDKs, or the CLI.  To create a
+        table with the CLI:
+
+        $ aws dynamodb create-table --table-name app-entity \
+            --attribute-definitions AttributeName=id,AttributeType=S \
+            --key-schema AttributeName=id,KeyType=HASH \
+            --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5
+
+
+    - If you plan to run multiple applications that use DynamoDB, it's a good idea to preface table names
+        with the application name.
+
+
+
+- Primary Key
+
+    - A PK is unique within a table and identifies an item.  You can use a single attribute as the PK.
+        DynamoDB calls this the 'partition key', which you need to look up an item.  You can also
+        specify an additional 'sort key'.
+
+
+    - A partition key uses a single attribute of an item to create a hash-based index.  For example, a
+        user table could use the user's email as a partition key.
+
+
+    - When you use both a partition key and a sort key, you create a more powerful index.  To look up an
+        item, you need to know the exact partition key.  The sort key can be queried using the
+        [=, >, <, >=, <=, and BETWEEN x AND y] operators.
+
+
+    - For instance, a message table could use a partition key and a sort key as it's PK.  The partition
+        key could be the user's email, and the sort key could be a timestamp.  Then, you could look up
+        all of a user's messages that are newer or older than a specific timestamp.
+
+
+
+- DynamoDB Local
+
+    - During development, each developer needs their own copy of DynamoDB, so they can write code and
+        unit tests.  You could create a separate set of DynamoDB tables for each developer.  Or you
+        could use a local DynamoDB for offline development, which Amazon offers as a free download.
+        It has the same functionality as DynamoDB, but cannot be used in Production.
+
+
+
+- Programming a ToDo Application
+
+    - We'll create a small Node application, 'nodetodo', which will use DynamoDB as a database.  We
+        can do the following in this application:
+
+        1. Create and delete users
+        2. Create and delete tasks
+        3. Mark tasks as done
+        4. Get a list of all tasks with various filters
