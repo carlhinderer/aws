@@ -1,0 +1,551 @@
+-----------------------------------------------------------------------
+| CHAPTER 2 - DATA MANAGEMENT ARCHITECTURES FOR ANALYTICS             |
+-----------------------------------------------------------------------
+
+- Databases and Data Warehouses
+
+    - In the 80s, the focus was on batch processing, where data would be processed in nightly runs on
+        large mainframe computers.
+
+
+    - In the 90s, organizations found themselves with tens or hundreds of databases.  Data warehouses
+        became popular to ingest multiple database systems into a central repository.  The DW could
+        focus on running analyic reports.
+
+
+    - The DW was designed to store well-integrated, highly structured, highly curated, and highly trusted
+        data.
+
+        - Data would be ingested on a regular basis from other highly structured sources.
+
+        - Before entering the DW, data would go through a significant amount of preprocessing, 
+            validation, and transformation.
+
+        - Any changes to the DW schema, or need to ingest new sources, would require significant planning
+            effort.
+
+
+    - The rise of the web has resulted in rapid growth in data sources, data volumes, and options to
+        analyze an increasing amount of data.  Businesses have found value in combining data from various
+        sources.
+
+
+    - Early DWs were custom built using relational DBs on powerful servers.  In the mid 2000s, purpose
+        built appliances were built for terabyte and petabyte-scale big data processing.  Oracle,
+        Teradata, and IBM Netezza were common vendors.
+
+
+
+- Dealing with Big Unstructured Data
+
+    - DW's were not well-suited to handling high-velocity semi-structured and unstructured data.  As a
+        result, Hadoop became popular in the early 2010s.  Hadoop clusters contained hundreds of machines
+        with attached disk managed under a single HDFS filesystem.
+
+
+    - Many organizations deployed Hadoop distributions from providers like Cloudera, Hortonworks, MapR,
+        and IBM to large clusters of computers in their data centers.  They had cluster management utilities
+        and pre-integrated open source frameworks like map-reduce, Hive, Spark, and Presto.
+
+
+    - Building on-premises Hadoop and Spark clusters requires a large up-front capital expenditure.  Running
+        them requires a team of specialists.  Teams spent much of their time upgrading their hardware and
+        software.
+
+
+
+- Data Lakes and Data Lakehouses
+
+    - Benefits of using cloud infrastructure:
+
+        - On-demand capacity
+        - Limitless and elastic scaling
+        - Global footprint
+        - Usage-based cost models
+        - Freedom from managing hardware
+
+
+    - AWS made Redshift available in 2013, the first cloud DW service.  Other cloud DW services, like
+        Snowflake, Google BigQuery, and Azure Synapse have followed.
+
+
+    - Another trend has been the adoption of highly durable, inexpensive, and virtually limitless cloud
+        object stores such as S3.  They provide native integrations with hundreds of cloud-native and
+        3rd party processing and analytic tools.
+
+
+    - These new cloud object stores have enabled the 'data lake architecture' approach.  This architecture
+        makes it possible to create a single source of truth by bringing together data of all sizes and
+        types in one place.
+
+
+    - In the most common approach today, all data is ingested and processed into the data lake to build a
+        single source of truth.  Then, a subset of the 'hot data' is loaded into the dimensional schema of
+        a cloud DW to support lower latency access.
+
+
+    - A new trend over the last few years is to create a 'data lakehouse'.  The lake house architecture is
+        geared to natively integrate the best capabilities of data lakes and data warehousing.
+
+        - Ability to quickly ingest any type of data
+
+        - Storing and processing of petabytes of unstructured, semi-structured, and structured data
+
+        - Support for ACID transactions (concurrently CRUD records in a dataset)
+
+        - Low latency data access
+
+        - Ability to consume data with a variety of tools (SQL, Spark, ML frameworks, business intelligence
+            tools)
+
+
+    - Most popular data lakehouse offerings:
+
+        - Redshift Spectrum and Lake Formation on AWS
+        - Azure Synapse
+        - Databricks Delta Lake
+
+
+
+- Understanding DWs and Data Marts - Fountains of Truth
+
+    - An Enterprise DW is the central data repository that contains structured, curated, consistent,
+        and trusted data assets organized into a well-modeled schema.
+
+
+    - The 'data assets' in an EDW are made of:
+
+        - Run-the-business applications (ERPs, CRMs, LOB applications) that support all the key business
+            domains across the enterprise.
+
+        - External data sources such as data from partners and third parties.
+
+
+    - And EDW provides business users and decision-makers with a central platform that has a well-modeled,
+        well-integrated single source of truth about various business subject areas, such as:
+
+        - Customer
+        - Product
+        - Sales
+        - Marketing
+        - Supply Chain
+
+      Business users can analyze data in the warehouse to measure business performance, find current and
+        historical trends, find business opportunities, and understand customer behavior.
+
+
+
+- How the DW Fits into an Analytics Architecture
+
+    
+     Source Systems                                       Data Consumers
+     --------------                                       ---------------
+          ERP                         DW                   Reporting
+          CRM                          |                   Business Intelligence
+      LOB App #1      --> ETL -->   ----------      -->    SQL-Based Analytics
+      LOB App #2                    |   |    |
+      LOB App #N                  DM1   DM2  DM3
+
+
+
+- Redshift Cluster
+
+    - There are 2 types of nodes in a Redshift cluster:
+
+        - One leader node which interfaces with client applications, receives and parses queries,
+            and coordinates query execution on compute nodes.
+
+        - Multiple compute nodes, which store warehouse data and run query execution steps in parallel.
+
+
+                             Client Application
+                                    |
+                                 JDBC/ODBC
+                                    |
+               ---------------------------------------------
+               Redshift Cluster   Leader Node
+                                    |
+                        --------------------------
+                        |           |            |
+                    Compute     Compute     Compute
+                    Node        Node        Node
+
+
+        - Each compute node has it's own independent CPU, memory, and storage volumes that are isolated
+            (shared nothing) from other compute nodes.  So horizontal scaling is easy.
+
+
+    - Cloud DWs implement a distributed query processing architecture called MPP to accelerate queries
+        on massive volumes of data.
+        
+        - The cluster leader compiles the incoming client query into a distributed execution plan
+
+        - The leader then coordinates the execution of compiled query code on multiple compute nodes in
+            parallel.  Each node executes assigned query segments on its respective portion of the
+            distributed dataset.
+
+        - To optmize MPP throughput, data may be evenly distributed across the nodes to ensure 
+            participation of the maximum number of nodes.
+
+        - To accelerate distributed MPP joins, the most commonly joined datasets are distributed across
+            the cluster nodes by common join keys.
+
+
+
+- Columnar Data Storage and Efficient Data Compression
+
+    - Modern DWs also boost query performance by using column-oriented storage and data compression.
+
+
+    - Most analytics queries include grouping and aggregations (ie sum, average, mean) of a small set
+        of columns from the fact and dimension tables.  For this reason, a column-oriented physical 
+        layout provides a big advantage.
+
+      In addition to storing tables as row chunks and using a column-oriented layout, modern DWs also
+        maintain an in-memory map of locations to these chunks, making locating the column on disk
+        very fast.
+
+
+    - Modern DWs also compress the data before storing it to disk.  This saves storage space and requires
+        much less I/O to read and write data.  This works especially well since all the data stored
+        together has the same data type.
+
+
+
+- Dimensional Modeling in DWs
+
+    - Star Schema
+
+         
+         SALE_TYPE_DIMENSION
+         ---------------------                                           EMPLOYEE_DIMENSION
+         + saletypeid (PK)                                               -----------------------
+         + sales_type_name                                               + employeeid (PK)
+         + sales_type_weight             SALES_FACT                      + first_name
+                                         -----------------------         + last_name
+                                         + productid (PK, FK)            + birth_year
+                                         + timeid (PK, FK)
+         STORE_DIMENSION                 + storeid (PK, FK)
+         --------------------            + employeeid (PK, FK)
+         + storeid (PK)                  + saletypeid (PK, FK)
+         + store_address                 + price
+         + city                          + quantity
+         + region                        + tax                           PRODUCT_DIMENSION
+         + state                                                         -----------------------
+         + country                                                       + productid (PK)
+                                                                         + product_name
+                                                                         + product_category
+                                                                         + product_dimensions
+         TIME_DIMENSION
+         --------------------
+         + timeid (PK)
+         + date
+         + week
+         + month
+         + year
+         + week_day
+
+
+    - A 'Fact Table' stores granular measurements or metrics.  The 'Dimension Tables' provide the context
+        under which fact measurements were measured.  They tell us:
+
+        - Who (employee, customer)
+        - What (product)
+        - Where (store, city, state)
+        - When (date, time, quarter, year)
+
+
+    - Business analytsts slice, dice, and aggregate facts from different dimensional perspectives to
+        generate business insights.  For instance:
+
+        - What is the total volume of a given product sold over a given period?
+
+        - What is the total revenue in a given product category?
+
+        - Which store sells the greatest number of products in a given category?
+
+
+    - In a star schema, data is normalized by splitting data into dimension tables.  However, individual
+        dimension tables are typically kept denormalized so that ll related attributes of a dimensional
+        topic are found in a single table.
+
+      This makes queries easier to write, but can lead to data duplication and inconsistencies.  Large
+        dimension tables can also be slow to update.
+
+
+    - Snowflake schemas normalize each dimension tables into multiple dimension tables.  This reduces
+        redundancy, but complex joins in queries can slow down query performance.
+
+
+        WEEK DIMENSION                                     YEAR DIMENSION
+        ------------------                                 -------------------
+        weekid (PK)                                        yearid (PK)
+        week                     TIME DIMENSION            year
+                                 ------------------
+                                 timeid (PK)
+        MONTH DIMENSION          date (FK)                 WEEKDAY_DIMENSION
+        ------------------       weekid (FK)               --------------------
+        monthid (PK)             monthid (FK)              weekdayid (PK)
+        month                    yearid (FK)               weekday
+                                 weekdayid (FK)
+
+
+
+- Data Marts
+
+    - DWs are designed for cross-domain analysis that's required to inform strategic business decisions.
+        However, some users just want to focus on a single department or LOB.  A 'data mart' can be
+        created for them.
+
+
+    - A data mart is often a set of denormalized fact tables organized into a much simpler schema than
+        the DW.  They are faster to build, simpler to understand, and easier to build.
+
+
+    - Data marts can be built top-down (data taken from the DW) or bottom-up (taken directly from that
+        department's run-the-business applications).
+
+
+
+- ETL and ELT Pipelines
+
+    - To bring data into the DW, we need to build a data pipeline that will:
+
+        1. Extract data from the source system
+        2. Transform source data by validating, cleaning, standardizing, and curating it
+        3. Load it into the DW schema
+
+
+    - Modern organization's DWs need to be fed data from a diverse set of sources:
+
+        - ERP and CRM applicaiton DBs
+        - Files stored on Network-Attached Storage arrays
+        - SaaS applications
+        - External partner applications
+
+
+    - ETL Pipeline
+
+        - Shown in Chapter 2 diagrams
+
+        - An 'ETL Pipeline' extracts data from various sources, and stores it in a staging area (outside
+            of the DW).  It's transformed in the staging area, then loaded into the DW's dimensional
+            schema.
+
+
+        - An ETL approach is used when:
+
+            - Source formats are different from the DW schema
+            - Data volumes are small to moderate
+            - Data transformations are complex and CPU-intensive
+
+
+        - Transformations are performed outside the DW using:
+
+            - Custom scripts
+            - A cloud-native ELT service like AWS Glue
+            - A specialized commercial ETL tool like Informatica, Talend, DataStage, Microsoft, Talend
+
+
+    - ELT Pipeline
+
+        - Shown in Chapter 2 diagrams
+
+        - An 'ELT Pipeline' extracts data (typically highly-structured data) from various sources into
+            a staging area within the DW.  The database engine powering the DW then performs the
+            transformations.
+
+        - This approach allows for rapidly loading large amounts of source data into the DW.  The MPP
+            architecture can often perform transformations quickly.
+
+
+        - An ELT approach is used when:
+
+            - Data sources and the DW have similar technologies
+            - A large volume of data needs to be quickly loaded into the DW
+            - All the transformations can be performed with the DW SQL engine
+
+
+
+- Data Lakes
+
+    - Shown in Chapter 2 diagrams
+
+
+    - A lack of well-defined tabular structures makes semi-structured and unstructured data an akward fit
+        for traditional DWs.  Inputs to ML include text, audio, and images.  We need tools besides SQL
+        for processing them.
+
+
+    - Most traditional DWs also tightly couple compute and storage.  You have to scale them up together,
+        and can't do one without the other.
+
+
+    - A cloud 'data lake' is a central, highly scalable repository in the cloud where an organization can
+        manage exabytes of various types of data, including:
+
+        - Structured data (row-based column tables)
+
+        - Semi-structured data (JSON and XML files, log records, sensor data streams)
+
+        - Unstructured data (audio, video, PDFs, emails)
+
+
+    - Data is loaded into the data lakes as-is, without being converted into a standard structure.
+
+
+    - A cloud data lake natively integrates with cloud analytic services that are decoupled from data lake
+        storage and enables diverse analytic tools:
+
+        - SQL
+        - Code-based tools like Spark
+        - Specialized ML tools
+        - Business intelligence visualization tools
+
+
+    - The Storage Layer
+
+        - Unlimited low-cost storage that can store a variety of datasets, regardless of structure or
+            format.  Can have a number of different zones, but common ones are:
+
+            1. Loading/raw zone
+                 - Permanently store data, as-is, from source systems
+
+            2. Clean/transform zone
+                 - Validated, cleaned, and optimized
+                 - Often stored in optimized formats like Parquet
+                 - Often partitioned to accelerate query execution and downstream processing
+                 - May often have PII masked
+
+            3. Curated/enriched zone
+                 - Refined and enriched with business-specific logic and transformations
+                 - Most consumable state
+                 - Typically partitioned, cataloged, and optimized for consumption layer
+
+
+    - The Cataloging and Search Layer
+
+        - This layer provides metadata about datasets in data lake:
+
+            - Schema
+            - Partitioning information
+            - Categorization
+            - Ownership
+
+        
+        - May also track changes that have been made to schemas in the lake.
+
+        - Should provide a search capability to simplify the task of finding a required dataset.
+
+
+    - The Ingestion Layer
+
+        - This layer is responsible for connecting to diverse types of data sources and brining their
+            data into the storage layer.
+
+
+        - This layer contains several independent components, each purpose-built to connect to a data
+            source with a distinct profile based on:
+
+            1. Data structure (structured, semi-structured, unstructured)
+            2. Data delivery type (table rows, data stream, data file)
+            3. Data production cadence (batch, streaming)
+
+
+    - The Processing Layer
+
+        - Once the ingestion layer brings data into the landing zone, the processing layer makes it ready
+            for consumption by data consumers.  This layer does the transformations and storing of data
+            in subsequent zones.
+
+
+    - The Consumption Layer
+
+        - Once data has been ingested and processed to make it consumption-ready, it can be analyzed
+            using several techniques:
+
+            - Interactive query processing
+            - Business intelligence dashboarding
+            - ML
+
+
+        - The tools in the consumption layer can natively access data from the storage layer, and the
+            schema can be accessed from the catalog layer.
+
+
+
+- The Data Lakehouse Architecture
+
+    - Organizations collect and analyze structured data in DWs and they build data lakes to manage and
+        analyze unstructured data.  Having 2 separate solutions ends up creating:
+
+        - Data and processing silos
+        - Data integration complexity
+        - Excessive data movement
+        - Data consistency issues
+        - Higher costs and delays in gaining insights
+
+
+    - In the cloud-native 'lake house architecture', organizations create a single envioronment to
+        collect, manage, and process all their structured and unstructured data in a simple and integrated
+        fashion.
+
+
+    - Data Lakehouse Implementations
+
+        - Databricks Delta Lake
+        - Apache Hudi
+        - Azure Synapse Analytics
+        - AWS (with Redshift Spectrum and Lake Formation)
+
+
+    - 'Redshift Spectrum' is a feature of the Redshift service that enables Redshift to read data stored in
+        S3.  It's essentially a query processing layer that uses Amazon-managed compute nodes to query
+        structured and semi-structured data hosted in S3.
+
+      This enables a Redshift DW to present a single unified interface, where users can run SQL statements
+        that combine data from both Redshift and S3.
+
+
+    - 'Lake Formation' provides the central lakehouse catalog where users and analytics services can
+        search, discover, and retrieve metadata for a dataset.  
+
+        - The catalog is kept up to date automatically with the metadata from all lakehouse datasets using 
+            the AWS Glue catalog automation capability.  Glue can be configured to periodically crawl
+            through the lakehouse storage, discover datasets, extract their metadata, and store it in the
+            catalog.
+
+        - This metadata allows AWS analytics services, such as Athena, to locate a corresponding dataset
+            and apply schema-on-read during query execution.
+
+
+    - In addition, AWS has enabled various cloud services in the processing and consumption layers to be 
+        able to access all lake house data using either Redshift SQL or a Spark interface.
+
+        - AWS Glue (a serverless Spark environment) and AWS EMR (a managed Spark environment) include
+            native Spark plugins that can access Redshift tables, in addition to S3 buckets, all in the
+            same job.
+
+        - Athena supports query federation, which enables Athena to query data in the data lake, as well
+            as data stored in other engines such as RedShift or RDS.
+
+
+    - AWS has also enhanced the AWS Lake Formation service to support 'governed tables'.  Users can run
+        transactional queries against data stored in the table, including inserts, updates, and deletes.
+        Users can also 'time travel', specifying a time with a query, and will get the state of the data
+        at that time.
+
+
+
+- Configuring the AWS CLI and Creating an S3 Bucket
+
+    - S3 is an object storage service with near unlimited capacity.  Once a bucket is created, it can store
+        any number of objects.
+
+    - Each S3 bucket must have a globally unique name, and it is recommended that it should be 
+        DNS-compliant.
+
+
+    - To create the bucket using AWS CLI:
+
+        $ aws s3 mb s3://carlhinderer-dataengineering
