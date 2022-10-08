@@ -1,0 +1,904 @@
+-----------------------------------------------------------------------
+| CHAPTER 3 - THE AWS DATA ENGINEER'S TOOLKIT                         |
+-----------------------------------------------------------------------
+
+- The AWS Platform
+
+    - AWS has been innovating at an incredible pace.  Today, there are around 200 different services,
+        including a number of different services that can be used by DEs to build complex data analytics
+        pipelines.
+
+    - There are often multiple services that could be used to achieve a specific outcome.  The challenge
+        is often finding the best fit for the specific requirements.
+
+
+
+- AWS Serices for Ingesting Data
+
+    - DMS (Database Migration Service)
+    - Kinesis (for ingesting streaming data)
+    - MSK (Managed Streaming for Apache Kafka)
+    - AppFlow (for ingesting data from SaaS services)
+    - Amazon Transfer Family (for ingesting using FTP or SFTP)
+    - Amazon DataSync (for ingesting from on-premises storage)
+    - Amazon Snow (devices for large data transfers)
+
+
+
+- Amazon DMS (Database Migration Service)
+
+    - One of the most common use cases is to sync data from a traditional DB system into an analytic 
+        pipeline, either landing the data in an S3 data lake or a Redshift DW.
+
+
+    - DMS is a versatile tool that can be used to migrate an existing Oracle DB into an Amazon Aurora DB,
+        for instance.  It can also be used to run continuous replication from a number of common DB
+        engines into an S3 data lake.
+
+
+    - There is often a requirement to perform continuous replication of a number of production databases
+        into an S3 data lake.
+
+
+    - For our use case, we want to sync our Customer, Products, and Order databases into the data lake.
+        Using DMS, we can do an initial load of the data into S3, specifying the format we want the file
+        written out in (CSV or Parquet), and the specific ingestion location in S3.
+
+
+    - At the same time, we can also set up a DMS task to do ongoing replication from the source databases
+        into S3 once the full load completes.  DMS tails the transaction log files from the database to
+        track updates to rows in the database and writes out the target file in S3 with an extra column
+        added (Op) which indicates insert/update/delete.  This is called 'CDC'.  This is what the file
+        looks like:
+
+        I, 9335, Smith, John, "1 Skyline Drive, NY, NY", 201-555-9012
+        U, 9335, Smith, John, "1 Skyline Drive, NY, NY", 201-555-9034
+        D, 9335, Smith, John, "1 Skyline Drive, NY, NY", 201-555-9034
+
+
+    - We would then have a separate update process that would run to read the updates and apply those
+        updates to the full load, creating a new point-in-time snapshot of our source database.  The
+        update process would be scheduled to run regularly, and each time it runs, it would apply the
+        latest updates to the previous snapshot, creating a new point-in-time snapshot.
+
+
+    - When to use:
+
+        - Migrate data from one database to another
+        - Sync data from an existing database into S3 on an ongoing basis
+
+
+    - When not to use:
+
+        - If you want to sync to the same database type (ie Oracle to Oracle), native tools are often 
+            better
+
+
+
+- Amazon Kinesis for Streaming Data Ingestion
+
+    - Kinesis is a managed service that simplifies the process of ingesting and processing streaming data
+        in real-time or near-real-time.  Use cases include:
+
+        - Log files
+        - Website clickstreams
+        - IoT data
+        - Audio and video streams
+
+
+    - Kinesis services:
+
+        - Kinesis Data Firehose
+            = Ingests streaming data, buffers for a configurable period, the writes out to a limited set
+                of targets (ie S3, Redshift, ElasticSearch, Splunk)
+
+        - Kinesis Data Streams
+            = Ingests real-time data streams, processing the incoming data with a custom application and
+                low latency
+
+        - Kinesis Data Analytics
+            = Reads data from a streaming source and uses SQL statements or Apache Flink to perform
+                analytics on the stream
+
+        - Kinesis Video Streams
+            = Processes streaming audio or video streams, as well as other time-serialized data such as
+                thermal imagery or RADAR
+
+
+
+- Amazon Kinesis Agent
+
+    - In addition to the Kinesis services, AWS also provides an agent to easily consume data from a file
+        and write that data out in a stream to either Kinesis Data Streams or Kinesis Data Firehose.
+        The 'Amazon Kinesis Agent' is available on GitHub as a Java application.  
+
+
+    - The agent can be configured to monitor a set of files, and as new data is written to the file, the 
+        agent buffers the data (configurable for a duration between 1 s to 15 mins), and then writes the
+        data to Kinesis.
+
+      The agent handles retry on failure, as well as file rotation and checkpointing.
+
+
+    - An example of a typical use case is a scenario where you want to want to analyze events happening
+        on your website in near real time.  The Kinesis Agent can:
+
+        - Monitor your Apache log files on your web server
+        - Convert every record from the Apache access log format into JSON
+        - Write records out reflecting all website activity every 30 s to Kinesis
+        - Kinesis Data Analytics can be used to analyze events and generate custom metrics based on a 
+            tumbling 5-minute window
+
+
+    - When to use:
+
+        - You want to stream data to Kinesis that is being written to a file in a separate process
+
+
+    - When not to use:
+
+        - If you have a custom application, you may just want to use the Amazon Kinesis Producer Library
+            or the AWS SDK to send events directly to Kinesis.
+
+
+
+- Amazon Kinesis Firehose
+
+    - Kinesis Firehose is designed to enable you to easily ingest data in near real time from streaming
+        sources and write out the data to common targets:
+
+        - S3
+        - Redshift
+        - Amazon ElasticSearch
+        - Third party services like Splunk, Datadog, and New Relic
+
+
+    - With Kinesis Firehose, you can easily ingest data from streaming sources, process or transform the
+        incoming data, and deliver that data to a target such as S3.  
+
+      A common use case is to ingest website clickstream data from the Apache web logs on a web server and 
+        write that data out to an S3 data lake or Redshift DW.  In this example, you would install 
+        Kinesis agent on the web server, which would write records from the log files to the Kinesis
+        Firehose endpoint.
+
+      The Kinesis Firehose Endpoint would buffer the incoming records, and either after a certain time
+        (1-15 minutes) or size of incoming records (1-128 MB), it would write out a file to a specific
+        target.  You specify both a size and time, and whichever is reached first will trigger writing
+        of the data.
+
+
+    - When writing files to S3, you have the option of transforming the incoming data to Parquet or ORC
+        format, or to perform custom transformations of the dta with a Lambda function.
+
+
+    - When to use:
+
+        - You want to receive streamingdata, buffer it for a period, and then write the data to one of
+            the supported targets.
+
+
+    - When not to use:
+
+        - Your use case requires very low latency processing of incoming streaming data.
+        - You want to use a custom application to process your incoming records
+        - You want to deliver records to a service not supported by Firehose
+
+
+
+- Amazon Kinesis Data Streams
+
+    - While Kinesis Firehose buffers incoming data before writing it to one of its supported targets,
+        Kinesis Data Streams offers more flexibility for how data is consumed, and makes the incoming
+        data available to your application with very low latency (within 70 ms of data being written to
+        Kinesis).
+
+
+    - Netflix uses Kinesis Data Streams to ingest terabytes of log data every day, enriching their 
+        networking flow logs by adding in additional metadata, then writing the data to an open source
+        application for performing near-real-time analytics on the health of their network.
+
+
+    - You can write to Kinesis Data Streams using the Kinesis Agent, or you can develop your own 
+        applications using the AWS SDK or KPL.  The AWS SDK provides the best performance.  The KPL
+        simplifies tasks such as monitoring and integrations.
+
+
+    - There are multiple options for creating applications to read from your Kinesis data stream:
+
+        - Using other Kinesis services (Kinesis Firehose or Kinesis Data Analytics)
+        - Running custom code using Lambda
+        - Setting up a cluster of EC2 instances to process your streams (can use KCL to simplify this)
+
+
+    - When to use:
+
+        - You want to process incoming data as it is received
+        - You want to create a cluster of servers to process incoming data with a custom application
+
+
+    - When not to use:
+
+        - Simple use case with supported target - use Kinesis Firehose instead
+        - You're migrating an existing Kafka cluster to AWS - use MSK instead
+
+
+
+- Amazon Kinesis Data Analytics
+
+    - Kinesis Data Analytics simplifies the process of processing streaming data, using either standard
+        SQL or an Apache Flink application.
+
+
+    - Example use case is to anaylze incoming clickstream data from an ecommerce website to get 
+        near-real-time insight into sales of a product.  For instance, an organization wants to know if
+        a promotion is driving sales.
+
+      Kinesis Data Analytics can enable this using relatively simple SQL queries to process records being
+        sent from their web server clickstream logs.  This enables the business to quickly get answers to 
+        questions such as "how many sales of product x have there been in each 5-minute period since our 
+        promotion went live?"
+
+
+    - When to use:
+
+        - You want to use SQL expressions to analyze data or extract key metrics over a rolling time period
+        - You have an existing Flink application you want to migrate to the cloud
+
+
+
+- Amazon Kinesis Video Streams
+
+    - Kinesis Video Streams can be used to process time-bound streams of unstructured data such as audio,
+        video, and RADAR data.
+
+
+    - Kinesis Video streams takes care of provisioning and scaling the compute infrastructure that is
+        required to ingest streaming video (or other types of media files).  It enables playback of video
+        for live and on-demand viewing.  It can be integrated with other Amazon API services to enable
+        applications such as computer vision and video analytics.
+
+
+    - Appliances such as video doorbell systems, home security camera, and baby monitors can stream video
+        through Kinesis Video Analytics.
+
+
+
+- Amazon MSK
+
+    - Apache Kafka is a popular open source distributed event-streaming platform that enables an 
+        organization to create high-performance streaming data pipelines and applications.  Amazon MSK
+        is a managed version of Apache Kafka.
+
+
+    - Kafka can be a challenge for organizations to install, scale, update, and manage in an on-premises
+        environment.  MSK allows an organization to deploy a cluster with a few clicks.
+
+
+    - When to use:
+
+        - When replacing an existing Kafka cluster
+        - If you want to take advantage of the many third-party integrations in the Kafka ecosystem
+
+
+    - When not to use:
+
+        - Kinesis may be a better solution if you're starting from scratch
+            (serverless and you pay for what you use instead of paying for a cluster)
+
+
+
+- Amazon AppFlow
+
+    - AppFlow can be used to ingest data from popular SaaS services, and to transform and write the data
+        out to common analytics targets (ie S3, Redshift, Snowflake).  It can also write to some SaaS
+        services.
+
+
+    - For example, AppFlow can ingest lead data from Marketo (marketing automation software), and
+        automatically create a new SalesForce contact record whenever a new Marketo lead is created.
+
+
+    - From a DE perspective, you can create flows that will automatically write out new opportunity
+        records created in SalesForce into your S3 data lake or Redshift DW.  Then, you can join those
+        records with other datasets to perform advanced analytics.
+
+
+    - AppFlow can be configured to run on schedule, or in response to specific events, and can filter,
+        mask, validate data, and perform calculations from data fields in the source.
+
+
+    - Supported AWS Services:
+
+        - Amazon EventBridge (a serverless event bus that ingests data and routes it to targets)
+        - Amazon Redshift (a cloud-based data warehousing service)
+        - Amazon S3 (an object storage service, often used as the storage layer for analytic data lakes)
+        - Amazon Honeycode (a managed service for building mobile and web applications with no programming)
+        - Amazon Lookout for Metrics (a machine learning service for identifying outliers in business metrics)
+
+
+    - Supported third party services:
+
+        - Amplitude (a product analytics toolset)
+        - Datadog (an application monitoring service)
+        - Dynatrace (an applications and infrastructure monitoring service)
+        - Google Analytics (a service for monitoring and tracking website traffic)
+        - Infor Nexus (an on-demand global supply chain management platform)
+        - Marketo (marketing automation software to help engage customers and prospects)
+        - Salesforce (customer relationship management and related services)
+        - ServiceNow (a platform for managing digital workflows)
+        - Singular (a marketing analytics and ETL solution)
+        - Slack (a channel-based messaging platform)
+        - Snowflake (a cloud-based data warehouse solution)
+        - Trend Micro (a workload security solution)
+        - Upsolver (a service for turning event streams into analytics-ready data)
+        - Veeva (a cloud computing service focused on pharmaceutical and life sciences companies)
+        - Zendesk (a customer service and helpdesk platform)
+
+
+
+- Amazon Transfer Family
+
+    - The 'Amazon Transfer Family' provides a fully managed service that enables file transfers directly
+        into and out of S3 using common transfer protocols like FTP/SFTP.
+
+
+    - Many organizations will make use of these protocols to exchange data with other organizations.  For
+        example, a real estate company receives the latest MLS (Multi-Listing Service) files from an MLS
+        provider via SFTP.
+
+      In this case, the real estate company will configure a server running SFTP, and create an SFTP user
+        account that the MLS provider can use to connect to the server and transfer the files.
+
+      With Transfer Family, the real estate company could migrate to the managed service with no change
+        to the provider.  The files would be written directly to S3.
+
+
+
+- Amazon DataSync
+
+    - The DataSync service helps ingest data from existing on-premises storage systems.  
+
+
+    - NFS (Network File System) and SMB (Server Message Block) are common protocols that are used to allow
+        computer systems to access files stored on a different system.  With DataSync, you can ingest data
+        from file servers that use either of these protocols.
+
+
+    - DataSync can write to multiple targest, including S3.  For example, if you have a solution running
+        in your data center that writes out end-of-day transactions to a file share, DataSync can ensure
+        that the data is synced to your S3 data lake.  This can also be used to transfer large amounts
+        of historical data to your data lake.
+
+
+
+- AWS Snow
+
+    - When you need to transfer datasets so large that sending them over a network connection is
+        impractical, the AWS Snow family of devices can be used.
+
+
+    - Large devices are shipped to a data center, the data is transferred on them locally, then they
+        are shipped back to AWS.  The device types include:
+
+        - AWS Snowcone = 5 lbs, 4-TB hard drive
+        - AWS Snowball = 50 lbs, 80-TB
+        - AWS Snowmobile = shipping container pulled by a semi-truck, 100-PB
+
+
+
+- AWS Services for Transforming Data
+
+    - Lambda (for light transformations)
+    - Glue (for serverless Spark processing)
+    - EMR (for Hadoop ecosystem processing)
+
+
+
+- AWS Lambda
+
+    - Lambda provides a serverless environment for executing code.  You can trigger your Lambda function
+        to execute through interaction with other AWS services.  You only pay for the time your code is
+        spent executing, and the amount of memory used while your code is executing.
+
+
+    - In the DE world, a common use case is performing validation or light processing or transformation
+        on incoming data.  For example, if you have a partner that is sending you CSV files throughout the
+        day, you can:
+
+        - Trigger a Lambda function to run each time a new file is received
+        - Code validates that the file is a valid CSV file
+        - Perform some computation on one of the columns and update the DB with the result
+        - Move the file into a different bucket where a batch process will later process all files received
+            received for the day
+
+
+    - Lambda has a limit of 15 minutes running time and a maximum memory configuration of 10 GB.  So it's
+        possbile to do more advanced processing as well.  For example, you may want to:
+
+        - Receive a ZIP file containing hundreds of XML files
+        - In your Lambda function you want to unzip the file
+        - For each file you want to validate that it is valid XML
+        - Perform calculations on fields in the file to update various other systems
+        - Concatenate the contents of all the files, and write that out in Parquet format in a different 
+            zone of your data lake.
+
+
+    - Lambda is also massively parallel.  You can have 1000 concurrent Lambda executions by default, but
+        this limit can be raised.  Lambda supports many languages, including Python.
+
+
+
+- AWS Glue (Serverless Spark)
+
+    - AWS Glue has multiple components that can all work together, grouped into the AWS Glue family.
+
+
+    - Serverless ETL Processing
+
+        - The heart of AWS Glue is a serverless environment using either a Python engine (Glue Python Shell)
+            or a Spark engine (AWS Glue Spark) for transformations and processing.
+
+        - Python can be used for small or medium datasets.  Spark is used for very large datasets.
+
+        - Both engines are serverless.  The user just needs to specify the number of Data Processing Units
+            (DPU) they want to power their job.  Glue charges are based on the number of times the code
+            executes and the number of DPUs.
+
+        - Glue supports Spark Streaming as well.
+
+
+    - AWS Glue Data Catalog
+
+        - Glue also includes a data catalog that can be used to provide a logical view of data stored
+            physically on a disk.  The objects in the catalog can be directly referenced in your ETL
+            code.
+
+
+        - In the scenario where you use DMS to replicate your HR database to S3, you will end up with a
+            prefix (directory) in S3 for each table from the source database.  In this directory, there
+            will generally be multiple files of data from the source table - for instance 20 CSV files.
+
+            S3/dataengineering-carlhinderer/hr/employee
+              > LOAD0000000001.csv
+              > LOAD0000000001.csv
+                 ...
+              > LOAD0000000020.csv
+
+
+        - The Glue Catalog can provide a logical view of this dataset, and capture additional data about
+            the dataset, in the data catalog.  For instance, the database, the tables, and the columns in
+            each table.
+
+        - The AWS Glue Data Catalog is a Hive-metastore-compatible catalog, meaning it can be used with a
+            variety of other services and third-party products.
+
+        - Other AWS services can use the AWS Glue Data Catalog.  Athena uses the Glue Data Catalog to 
+            enable users to run SQL queries directly on data in S3.  EMR and the Glue ETL Engine use the
+            catalog to allow uses to reference catalog objects directly in their ETL code.
+
+
+    - AWS Glue Crawlers
+
+        - AWS Glue Crawlers are processes that examine a data source (such as a path in an S3 bucket)
+            and automatically infer the schema and other information about the data source to 
+            automatically populate the Glue Data Catalog.
+
+        - For instance, a Glue Crawler could infer that the Employee directory is from our HR database
+            and what it's columns are.
+
+        - Note that Glue Crawlers are optional.  We can also add databases and tables to the Glue Catalog
+            using the Glue API or SQL statments in Athena.
+
+
+
+- Amazon EMR (for Hadoop ecosystem processing)
+
+    - Amazon EMR provides a managed platform for running popular open source big data processing tools,
+        like Spark, Hive, Hudi, HBase, Presto, Pig, and others.  EMR takes care of deploying these tools
+        and managing the underlying EC2 infrastructure.
+
+    - Glue provides a serverless environment for running Spark, while with EMR you need to specify a
+        detailed configuration for the cluster you want to run Spark.  EMR requires a much more
+        experienced Spark team.
+
+
+    - Each EMR cluster requires:
+
+        - A master node
+        - At least one core node (a worker node that includes local storage)
+        - Optionally a number of task nodes (worker nodes that don't include local storage)
+
+
+
+- AWS Services for Orchestrating Big Data Pipelines
+
+    - An organization will often have tens or hundreds of pipelines that work independently or in 
+        conjunction with each other on different datasets and perform different types of transformations.
+
+    - Each pipeline may use multiple services to achieve the goals and orchestration can be complex.
+
+    - AWS Glue Workflows (for orchestrating Glue components)
+    - Step Functions (for complex workflows)
+    - Amazon managed workflows for Apache Airflow
+
+
+
+- AWS Glue Workflows
+
+    - AWS Glue workflows are designed to help orchestrate the various AWS Glue components.  A workflow is
+        an ordered sequence of steps that can run Glue Crawlers and Glue ETL jobs.
+
+
+    - Workflow Example:
+
+        1. Run a Glue Crawler to add newly ingested data from the raw zone of the data lake into the Glue
+             data catalog.
+
+        2. Once the Glue Crawler completes, it triggers a Glue ETL job to convert the raw CSV data into
+             Parquet form, and writes it to the curated zone of the data lake.
+
+        3. Once the Glue job is complete, it triggers a Glue Crawler to add the newly transformed data
+             in the curated zone into the Glue data catalog.
+
+
+    - The steps can pass state to one another (ie location of files).
+
+    - Glue workflows can only be used to orchestrate Glue components.  If you need other services like
+        Lambda, you need a different solution.
+
+
+
+- AWS Step Functions
+
+    - AWS Step Functions is a service that allows you to create complex workflows that can be integrated
+        with many AWS services.  It is serverless, so you don't need to deploy or manage any
+        infrastructure.
+
+    - With Step Functions, you use JSON to define a state machine using a structured language known as the 
+        'Amazon States Language'.  Alternatively, you can use Step Functions Workflow Studio to create a 
+        workflow using a visual interface that supports drag and drop. 
+
+    - Workflows can run multiple tasks, run different branches based on a choice, enter a wait state for
+        a specified delay, loop back to previous steps, and other things to control the workflow.
+
+
+    - Step Functions can be triggered by:
+
+        - Using an Amazon EventBridge event (such as a schedule or other trigger)
+        - Calling the Step Functions API on demand
+
+
+    - Step Functions Example:
+
+        1. A CloudWatch event is triggered whenever a file is uploaded to a particular S3 bucket.  The
+             CloudWatch event starts our state machine, passing a JSON object that includes the location
+             of the newly uploaded file.
+
+        2. The first step runs a Glue Python shell job that takes the location of the uploaded file as
+             input and processes it (ie converts from CSV to Parquet).  The output of the Python function
+             indicates whether the processing succeeded or failed, and also indicates the path where it
+             was written.  This information is passed to the next step.
+
+        3. The next step, a 'Choice' type, will run an AWS Glue Crawler if the job succeeded.
+
+        4. In the AWS Glue Crawler step, a Lambda function is triggered, which in turn triggers the Glue
+             Crawler to run against the location where the Parquet file is stored.
+
+        5. If any of the previous jobs failed, an 'Error' step is triggered that will notify the DE team
+             of the failure.
+
+
+
+- Amazon Managed Workflows for Apache Airflow
+
+    - Airflow is a popular open source tool for orchestrating complex DE workflows.  It enables users to 
+        create processing pipelines programmatically.  AWS created MWAA to allow users to easily deploy
+        a managed version of it.
+
+
+    - The MWAA consists of the following components:
+
+        1. Scheduler = runs a multithreaded Python process that controls what tasks need to be run, and
+                         where and when to run those tasks
+
+        2. Worker/Executor = execute tasks
+
+        3. Meta-database = runs in the MWAA service account, keeps track of the status of tasks
+
+        4. Web server = runs in the MWAA service acount, provides web interface to monitor and execute tasks
+
+
+    - Note that this is a managed environment, not a serverless one.  So AWS deploys the environment and
+        upgrades the software for you, but you have to configure the environment.  Also, you pay for
+        the solution whether you're using it or not.
+
+
+
+- AWS Services for Consuming Data
+
+    - Once data has been transformed and optimized for analytics, the data consumers in an organization
+        need easy access to the data via a number of different types of interfaces:
+
+        - Data scientists may want to use standard SQL queries to query the data.
+
+        - Data analysts may want to query in place with SQL, and also load subsets of the data into a
+            high-performance DW for low-latency, high-concurrency queries and scheduled reporting.
+
+        - Business users may prefer accessing data via a visualization tool that enables them to view data
+            represented as graphs, charts, and other types of visuals.
+
+
+    - Athena (for SQL queries in the data lake)
+    - Redshift and Redshift Spectrum (for DW and data lakehouses)
+    - QuickSight (for visualizing data)
+
+
+
+- Amazon Athena
+
+    - Amazon Athena is a serverless solution for using standard SQL queries to query data that exists in
+        a data lake or in other sources.  As soon as a dataset has been written to Amazon S3 and cataloged
+        in the Glue Data Catalog, users can run complex SQL queries against the data without having to set
+        up any infrastructure.
+
+
+    - Athena enables a data consumer to query datasets in the data lake (or other connected data sources)
+        either through the AWS Management Console, or through an ODBC or JDBC driver.
+
+
+    - Graphical tools such as 'SQL Workbench' can connect to Athena through the JDBC driver, and you can
+        programmatically connect to Athena and run your SQL queries through the ODBC driver.
+
+
+    - 'Athena Federated Query' enables you to build connectors so that Athena can query other data sources
+        beyond just S3.  There are prebuilt connectors to connect it to DynamoDB, AWS-managed relational
+        DB engines, and CloudWatch Logs.
+
+      Using this functionality, a user could run a query using Athena that gets active orders from DynamoDB,
+        references that data against a customer db running on PostgreSQL, and brings in historical order
+        data from the S3 data lake - all in one SQL statement.
+
+
+
+- Redshift and Redshift Spectrum
+
+    - Launched in 2012, Redshift was AWS's fastest-growing service by 2015, and today has tens of thousands
+        of customers.
+
+
+    - A Redshfit DW is designed for OLAP (reporting and analytic) workloads.  Redshift provides a clustered 
+        environment that enables all the compute nodes in the cluster to work with portions of the data 
+        involved in a SQL query, helping to provide the best performance for scenarios where you are working 
+        with data that has been stored in a highly structured manner, and you need to do complex joins across 
+        multiple large tables on a regular basis.
+
+     As a result, Redshift is an ideal query engine for reporting and visualization services that need to 
+        work with large datasets.
+
+
+    - A typical SQL query that runs against a Redshift cluster would be likely to:
+
+        - Retrieve data from thousands or millions of rows in the db
+        - Often performing complex joins between different tables
+        - Likely doing calculations such as aggregating or averaging certain columns
+
+        - What was the average sale amount for sales in our stores last month, broken down by each ZIP code 
+            of the USA?
+
+        - Which products, across all of our stores, have seen a 20% increase in sales between Q4 last year 
+            and Q1 of this year?
+
+
+    - In a modern analytic environment, a common use case would be to load a subset of the data from the
+        data lake into the DW, based on which data needs to be queried more frequently and which data needs
+        to be used for queries requiring the best possible performance.
+
+
+    - In this scenario, a DE may create a pipeline to load customer, product, sales, and inventory data
+        into the DW on a daily basis.  Since 80% of queries are on the last 12 months of sales data, a DE
+        may also design a process to remove all data more than 12 months old from the DW.
+
+
+    - But what about the other 20% that need historical data more than 12 months old?  Redshift Spectrum is
+        used to enable a user to write a single query that queries data in both the DW and the data lake.
+
+      To enable this, the DE can configure the Redshift cluster to connect with the AWS Glue Data Catalog,
+        where all the databases and tables for our data lake are defined.  Once this has been configured,
+        a user can reference both internal Redshift tables and tables registered in the Glue Data Catalog.
+
+
+    - Query Example:
+
+        1. Using a SQL client, the user makes a connection and authenticates with the Redshift leader node,
+             and sends through a SQL statement that queries both the 'current_sales' table (in Redshift)
+             and the 'historical_sales' table (in S3 and registered in Glue Data Catalog), which contains
+             10 years of historical sales data.
+
+        2. The leader node analyzes and optimizes the query, complies a query plan, and pushes individual
+             query execution plans to the compute nodes in the cluster.
+
+        3. The compute nodes query data they have locally (for 'current_sales') and query the AWS Glue Data
+             Catalog to get information about 'historical sales'.  Using this information, they optimize
+             queries for the external data and push them to the Redshift Spectrum layer.
+
+        4. Redshift Spectrum is outside of a customer's Redshift cluster, and is made up of thousands of
+             worker nodes (EC2 instances) in each AWS Region.  These worker nodes are able to scan, filter,
+             and aggregate data from the files in S3, then they stream data back to the Amazon Redshift
+             cluster.
+
+        5. The Redshift cluster performs final operations to join and merge data, and then returns the
+             results to the user's SQL client.
+
+
+
+- Amazon QuickSight
+
+    - Many business users would prefer a graphical representation of data, as opposed to a spreadsheet.
+        For instance, a graph that allows users to visually compare sales between quarters, segments, and
+        territories with just a glance.
+
+      As a result, the use of Business Intelligence Tools, which provide visual representations of highly
+        complex data, is extremely popular in the business world.
+
+
+    - Amazon QuickSight is a service that allows the creations of these types of complex visualizations.
+        Beyond just static visuals, these charts enable users to filter data and drill down to get further
+        details.
+
+
+    - QuickSight is serverless, which means there are no servers to manage.  There is a simple monthly fee
+        based on the user type (author or reader).
+
+
+    - A DE can configure QuickSight to access data from a multitude of sources, including accessing data
+        from an S3 data lake via integration with Athena.
+
+
+
+- Triggering an AWS Lambda Function when a new file arrives in an S3 bucket
+
+    - For this exercise, we will:
+
+        - Configure an S3 bucket to automatically trigger a Lambda function whenever a new file is
+            written to the bucket
+
+        - In the Lambda function, we'll use a library called 'AWS Data Wrangler', which simplifies common
+            ETL tasks in an AWS environment
+
+        - Use the Data Wrangler to convert a CSV file into Parquet format, then update the AWS Glue Catalog
+
+
+
+- Create a Lambda Layer Containing the AWS Data Wrangler library
+
+    - Lambda layers allow your Lambda function to bring in additional code, packaged as a .zip file.
+        In our case, the Lambda layer is going to contain the AWS Data Wrangler Python library, which
+        we can then attach to any Lambda function when we want to use the library.
+
+
+    - To create a Lambda layer, download the AWS Data Wrangler library from GitHub to your local drive.
+
+        https://github.com/awslabs/aws-data-wrangler/releases
+
+      Download the 'awswrangler-layer-2.10.0-py3.8.zip' file under 'Assets'.
+
+
+    - In the AWS console, navigate to the 'Lambda' service.
+
+        > Additional Resources
+          > Layers
+            > Create layer
+
+                Name: awsDataWrangler217_python39
+                Upload the zip file
+                Compatible Runtimes: Python 3.9
+
+
+    - Now we can use the layer in any of our Lambda functions.
+
+
+
+- Creating New S3 Buckets
+
+    - We'll create buckets for our Landing Zone and Clean Zone.  Navigate to the 'S3' service.
+
+        > Create bucket
+          > Name: dataeng-landing-zone-cah
+                  dataeng-clean-zone-cah
+            Accept all other defaults
+
+
+
+- Creating an IAM Policy and Role for your Lambda Function
+
+    - Our Lambda function will need the following permissions:
+
+        - Read our source S3 bucket
+        - Write to our target S3 bucket
+        - Write logs to Amazon CloudWatch
+        - Access to all Glue API actions (to enable the creation of new databases and tables)
+
+
+    - To create the new IAM policy, navigate to the 'IAM' service.
+
+        > Policies
+          > Create policy
+
+        - Select the 'JSON' option for creating the policy.
+
+        - Then, copy and paste the policy from the book's GitHub page, replacing the bucket names with
+            the buckets we created.
+
+        - Policy Name: DataEngLambdaS3CWGluePolicy
+          Keep other defaults, then 'Create Policy'
+
+
+    - Now, to create the role:
+
+        > Roles
+          > Create Role
+
+            Trusted Entity: Lambda
+            Attach Permissions: Policy we just created
+            Role Name: DataEngLambdaS3CWGlueRole
+
+
+
+- Creating a Lambda Function
+
+    - To create a function, navigate to the 'Lambda' service.
+
+        > Functions
+          > Create function
+            > Author from scratch
+
+                Function name: CSVtoParquetLambda
+                Runtime: Python 3.9
+                Use an existing role: Role we just created
+
+                'Create function'
+
+                Layers
+                  > Add a layer
+                    > Custom Layers
+                       Layer: Layer we just created
+
+                Code Source: Code file from book's Github page, replacing the bucket names
+
+                Click 'Deploy'
+
+                Edit Configuration:
+                  Timeout = 1 minute
+
+
+
+- Configuring Our Lambda Function to be Triggered by S3 Upload
+
+    - In the 'Function Overview' box of our Lambda function, 
+
+        > Add trigger
+          > Trigger configuration: Amazon S3
+
+              Bucket: Our landing zone bucket
+              All Object Create Events
+              Suffix: .csv
+              Accept 'Recursive Invocation' warning
+
+              'Add'
+
+
+    - To test this, create a simple test csv file called 'test.csv' or download the one from the book's
+        GitHub.  Upload it to our source S3 bucket:
+
+        $ aws s3 cp test.csv s3://dataeng-landing-zone-cah/testdb/csvparquet/test.csv
+
+
+    - If everything has been configured correctly, the Lambda function will have been triggered, and
+        the target s3 bucket should habe a Parquet-formatted bucket.
+
+      Also, the Glue database and table should have been created.  You should be able to see it in the
+        AWS Management Console.
+
+      To list files in our clean bucket:
+
+        $ aws s3 ls s3://dataeng-clean-zone-cah/testdb/csvparquet/
