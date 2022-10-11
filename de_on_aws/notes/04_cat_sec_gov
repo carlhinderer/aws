@@ -1,0 +1,711 @@
+-----------------------------------------------------------------------
+| CHAPTER 4 - DATA CATALOGING, SECURITY, & GOVERNANCE                 |
+-----------------------------------------------------------------------
+
+- Getting Data Security and Governance Right
+
+    - 'Data security' dictates how an organization should protect data to ensure that data is stored 
+        securely (such as in an encrypted state) and that access by unauthorized entities is prevented.
+
+
+    - 'Data governance' is related to ensuring that only people that need access to specific datasets have 
+        that access.  Governance also applies to ensuring that an organization only uses and processes
+        data on individuals in an approved and legal way.
+
+
+
+- Common Data Regulatory Requirements
+
+    - Regulations that DEs should know include:
+
+        - GDPR (European Union)
+        - CCPA and CPRA (California)
+        - PDP (India)
+        - POPIA (South Africa)
+
+
+    - These lasws are complex, but they generally involve individuals having the right to know what data
+        a company holds about them, strict controls about data being processed, and in some cases the right
+        to be deleted from a company's systems.
+
+
+    - Many regulations exist that apply to specific industries:
+
+        - HIPAA in health care
+        - PCI when credit cards are being processed and stored
+
+
+
+- Core Data Protection Concepts
+
+    - Personal Data
+    - Encryption
+    - Anonymized Data
+    - Pseudonymized Data/Tokenization
+    - Authentication
+    - Authorization
+
+
+
+- PII (Personally Identifiable Information) and Personal Data
+
+    - PII is used to reference any information ahtat can be used to identify an individual.  This includes
+        information such as Full Name, SSN, IP address, and photos or videos.
+
+      PII also covers any information about a specific aspect of an individual (such as a medical condition,
+        location, or political affiliation).
+
+
+    - 'Personal Data' is a GDPR-defined term that refers to any identifiable information, including name,
+        location, identification, or social identity of a person.
+
+
+
+- Encryption
+
+    - 'Encryption' is a mathematical technique of encoding data to make it unrecognizable and unusable.
+        An authorized user with a key can encrypt and decrypt the data.  A well-designed encryption
+        algorithm makes it very difficult to decrypt the data without the key.
+
+
+    - There are 2 important types of encryption, and both should be used for all data and systems.
+
+
+    - 'Encryption in transit' is the process of encrypting data as it moves between systems.  For example,
+        a system that migrates data from a database to a data lake should be encrypted before being
+        transmitted, that the source and target endpoints are authenticated, and the data can be
+        decrypted at the target for processing.
+
+      If the data is intercepted, it will be unable to be read by the person who intercepted it.
+
+      TLS is the most common way to achieve this for all communications between systems.
+
+
+    - 'Encryption at rest' is the encryption of data written to disk.  After each phase of data processing,
+        all the data that is persisted to disk should be encrypted.
+
+
+
+- Anonymized Data
+
+    - 'Anonymized data' has been altered in such a way that personal data is irreversibly de-identified,
+        rendering it impossible for any PII data to be identified.  This could involve replacing PII data
+        with randomly generated data.
+
+
+    - Another way anonymization could be applied is to remove most PII, but keep only a few attributes,
+         which makes it difficult to identify an individual.  This contains risk, since identification is
+         still possible.
+
+
+
+- Pseudonymized Data/Tokenization
+
+    - 'Pseudonymized data' is data that has been altered so that personal data is de-identified.  The
+        difference is that PII can still be accessed with separately kept additional information.
+
+
+    - There are multiple techniques for pseudonymizing data:
+
+        - Replace a full name with a randomly generated token
+        - Use a hash representing the name
+        - Use a fake name
+
+
+    - Tokenization is the most popular method.  When a raw dataset is ingested into the data lake, the
+        first step may be to pass the data through a tokenization system.  This system will replace all
+        PII data with an anonymous token, and will record each 'real data | token substitution' in a
+        secure database.
+
+      Once the data has been transformed, if a consumer requires access and is authorized to access the PII
+        data, they can pass the dataset to the tokenization system to be detokenized.  It is important that
+        the tokenization system is completely separate from the analytic systems containing the tokenized
+        data.
+
+
+    - Hashing is a less secure way to de-identify PII data, especially when the data type has a limited
+        number of values like SSNs or names.
+
+      It's easy to create a rainbow table with hashes of all possible SSNs and most names.  You can salt
+        the hash, but it's still not recommended to hash data type with a limited set of values.
+
+
+
+- Authentication
+
+    - 'Authentication' is the process of validating that a claimed identity is that identity.  It
+        validates that you are who you say you are.
+
+
+    - Multi-factor authentication can improve the effectiveness of typical password authentication.
+
+
+    - Federated identity means that responsiblity for authenticating a user is done by another system.
+        For instance, you log into your company's AWS console via the company's Active Directory
+        access portal.  This means you don't need separate credentials for AWS.
+
+
+
+- Authorization
+
+    - 'Authorization' is the process of authorizing access to a resource based on a validated identity.
+        In DE, this may mean that you require authorization to access specific datasets.
+
+
+
+- Cataloging Your Data to Avoid the Data Swamp
+
+    - To avoid a data swamp, you need 2 important things:
+
+        1. A data catalog that can be used to keep a searchable record of all the datasets in the data lake
+
+        2. Policies that ensure useful metadata is added to all the entries in the data catalog
+
+
+
+- Data Catalogs
+
+    - A data catalog enables business users to easily find datasets that may be useful to them, and better
+        understand the context around the dataset through metadata.
+
+
+    - Broadly speaking, there are 2 types of data catalogs - business catalogs and technical catalogs.
+        However, many catalog tools offer aspects of both.
+
+
+    - Technical catalogs map data files in the data lake to a logical representation of those files in 
+        the form of databases and tables.
+
+        - The Hive Metastore is a well-known catalog that stores technical metadata for Hive tables
+            (such as the table schema, location, and partition information).  These are primarily 
+            technical attributes.
+
+        - The AWS Glue data catalog is a Hive-compatible metastore.  It is another example of a technical
+            catalog.
+
+        - A technical catalog enables an analytic service to understand the schema of the dataset, which
+            allows queries to be run against the dataset.
+
+
+    - Business catalogs focus on enabling business metadata to be captured, and providing a catalog that
+        is easy to search.
+
+        - For instance, you may capture details about the owner, business unit, source system, 
+            confidentiality classification, how often the data is updated, and how it relates to other
+            datasets.
+
+
+    - For example, the AWS Glue data catalog is a technical catalog.  But, you can add key/value labels
+        to each dataset to capture other information.
+
+
+
+- Organizational Policies for Capturing Metadata
+
+    - It is up to the organization to enforce policies that ensure the right details are captured about
+        each dataset.  For example, a policy needs to be enforced that ensures all the data that is 
+        added to the data lake is captured in the data catalog.
+
+
+    - If technical data is captured in the catalog, but there is no policy to enforce the capture of
+        business data, you can still end up with a swamp.  Users will not have any information about the
+        datasets or details about an owner to answer questions of.
+
+
+
+- The AWS Glue/Lake Formation Data Catalog
+
+    - Within AWS, there are 2 services for interacting with the data catalog:
+
+        1. AWS Glue
+        2. AWS Lake Formation
+
+      There is only a single catalog, but both Glue and Lake Formation provide an interface to the catalog.
+
+
+    - The Lake Formation console provides a more modern design, and also provides some additional 
+        functionality that is not possible with the Glue interface, including:
+
+        - The ability to add key/value properties at the column level
+        - The ability to configure access permissions at the database, table, or column level
+
+
+    - The data catalog can be referenced by various analytical tools to work with the data in the data
+        lake.  For example, Amazon Athena can reference the data catalog to enable users to run queries
+        against the databases and tables in the catalog.  Athena uses the catalog to get:
+
+          - The S3 location where the files are stored
+          - The file type format of the files
+          - The serialization library used
+          - The datatype for each column in the dataset
+          - Information about any partitions used for the dataset
+
+
+    - A DE should consider building workflows that make use of Glue Crawlers to run after data is ingested.
+        Or, when a new job is brought into Production, we should make sure the Glue API is being used to
+        update the data catalog.
+
+
+    - Automated methods should also be used to ensure relevant metadata is being added to the catalog
+        whenever new data is created, such as:
+
+        - Data source
+        - Data owner
+        - Data sensitivity (public, general, sensitive, confidential, PII, etc.)
+        - Data lake zone (raw, transformed, enriched, etc.)
+        - Cost allocation tag (business unit, dept, etc.)
+
+
+
+- AWS Services for Data Encryption and Security Monitoring
+
+    - AWS Key Management Service (KMS)
+    - Amazon Macie
+    - Amazon GuardDuty
+
+
+
+- AWS Key Management Service
+
+    - KMS simplifies the process of creating and managing security keys for encrypting and decrypting
+        data in AWS.  A large number of AWS services can work with KMS to enable encryption, including
+        most of the analytical services we've described so far.
+
+
+    - Permissions can be granted to users to make use of the keys for encrypting and decrypting data, and
+        all use of AWS KMS keys is logged in the CloudTrail service.
+
+
+    - For example, with S3, you can enable 'S3 Bucket Keys', which configures all new objects in the
+        bucket with an AWS KMS key.
+
+
+    - Note that the keys must be carefully protected, because if a key is lost, encrypted data becomes 
+        effectively lost also.  For this reason, you must specify a waiting period between 7-30 days
+        before a key is deleted.  During the waiting period, the key cannot be used, and you get an
+        alert if someone tries to use it.
+
+
+
+- Amazon Macie
+
+    - Amazon Macie is a managed service that uses ML, along with pattern matching, to discover and
+        protect sensitive data.  It identifies PII data in an S3 bucket and provides alerts to warn
+        administrators about the presence of such sensitive data.
+
+
+    - A Step Function can automatically be launched to remediate the problem.
+
+
+    - Macie can identify items such as:
+
+        - Names
+        - Addresses
+        - Credit card numbers
+
+
+
+- Amazon GuardDuty
+
+    - Amazon GuardDuty is an intelligent threat detection service that uses ML to monitor your AWS account
+        and provide proactive alerts about malicious activity and unauthorized behavior.
+
+
+    - GuardDuty analyzes several AWS-generated logs, including:
+
+        - CloudTrail S3 data events (a record of all actions taken on S3 objects)
+        - CloudTrail maangement events (a record of all usage of AWS APIs)
+        - VPC flow logs (a record of all network traffic in a VPC)
+        - DNS logs (a record of all DNS requests within your account)
+
+
+
+- AWS Services for Managing Identity and Permissions
+
+    - AWS IAM Service
+    - AWS Lake Formation for managing data lake access
+
+
+
+- AWS IAM Service
+
+    - AWS IAM is a service that provides both authentication and authorization for the AWS console, CLI,
+        and API calls.
+
+
+    - IAM supports federated identity, so you can configure another provider for authentication such as
+        Active Directory or Okta.
+
+
+    - AWS Account Root User
+
+        - The email account you signed up for your AWS account with becomes the root user of the account.
+
+        - You can log into the console with this account, and it has full access to all the resources in
+            the account.
+
+        - You should not use this account to perform everyday tasks.
+
+
+    - IAM User
+
+        - This is an identity you create, and can be used to log into the console, run CLI commands, or 
+            make API calls.
+
+        - An IAM user has a login name and password that's used for console access and can have up to 2
+            associated access keys used to authenticate the user when using the CLI or API.
+
+        - You can associate IAM policies directly with a user, but it's recommended to instead create a 
+            group with relevant policies attached and add the user to the group.
+
+
+    - IAM User Groups
+
+        - An IAM group is used to provide permissions that can be associated with multiple IAM users.
+
+        - You provide permissions (via IAM policies) to an IAM group, and all the members of the group
+            then inherit the permissions.
+
+
+    - IAM Roles
+
+        - An IAM role is similar to a user, but it does not have a username/password, and you cannot 
+            directly log into a role.
+
+        - However, an IAM User can assume the identity of an IAM role, taking on the permissions assigned
+            to that role.
+
+        - Roles are also used in federation, where users are authenticated by an external system, then
+            that identity is associated with an IAM Role.
+
+        - An IAM role can be used to provide permissions to AWS resources.  For example, to provide
+            permissions to an AWS Lambda function so that it can access specific resources.
+
+
+    - To grant authorization to access IAM resources, you can attach an IAM policy to an IAM user, IAM
+        Group, or IAM role.  These policies grant or deny access to specific AWS resources, and can
+        make use of conditional statements to further control access.
+
+      These identity-based policies are JSON documents that specify the details of access to an AWS
+        resource.  They can be created by hand or configured in the AWS management console.
+
+
+    - There are 3 types of identity-based policies that can be utilized:
+
+        1. AWS Managed Policies
+            - Created and managed by AWS, provide permissions for common use cases
+            - For example, 'Administrator Access' provides full access to every service and resouce in AWS
+            - 'DabaseAdministrator' provides permissions for setting up, configuring, and maintaining DBs
+
+        2. Customer-Managed Policies
+            - Policies you create and manage yourself
+            - Could provide a list of specific S3 buckets that can only be accessed by specific IP addresses
+
+        3. Inline Policies
+            - Written directly for a specific user, group, or role
+            - Apply to one specific entity (user, group, role) only
+
+
+    - Here is a customer-managed policy that grants read access to a specific S3 bucket.
+
+        {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Action": [
+                        "s3:ListBucket"
+                    ],
+                    "Resource": "arn:aws:s3::: de-landing-zone"
+                },
+                {
+                    "Effect": "Allow",
+                    "Action": [
+                        "s3:GetObject"
+                    ],
+                    "Resource": ["arn:aws:s3::: de-landing-zone/*"]
+                }
+            ]
+        }
+
+
+    - To further limit this policy to only allow read access from specific IP addresses:
+
+        "Condition": {
+            "IpAddress": {
+                "aws:SourceIp": [
+                    "12.13.15.16/32",
+                    "45.44.43.42/32"
+                ]
+            }
+        }
+
+
+    - When you have a ton of S3 buckets in a data lake, managing accounts and permissions for all of them
+        can be a challenge.  To make managing S3-based data lakes easier, AWS introduced a new service
+        called AWS Lake Formation, which enables permissions for the data lake to be controlled by the
+        Data Lake Administrator in the Management Console.
+
+
+
+- Using AWS Lake Formation to Manage Data Lake Access
+
+    - AWS Lake Formation is a service that simplifies setting up and managing a data lake.  This allows
+        access to be managed without having a buch of JSON-based policy documents.
+
+
+    - Lake Formation enables an administrator to grant fine-grained permissions on databases, tables, and
+        columns using GRANT and REVOKE statements.
+
+
+    - Lake Formation works with IAM permissions, it doesn't replace it.  A recommended way to do this is
+        to apply broad permissions to a user using an IAM policy, but apply fine-grained permissions with
+        Lake Formation.
+
+
+    - Permissions management before Lake Formation
+
+        - Before Lake Formation, all data lake permissions were managed at the S3 level using IAM policy
+            documents written in JSON.  These policies would control access to:
+
+            - The data catalog objects in the Glue data catalog (permissions to access Glue DBs and tables)
+            - The underlying physical storage in S3 (ie the Parquet or CSV files in a bucket)
+            - Access to analytical services (ie Athena and Glue)
+
+
+    - Permissions management using AWS Lake Formation
+
+        - With Lake Formation, permissions management changed so that broad access can be provided to Glue
+            catalog objects in the IAM policy.  Fine-grained access is controlled via AWS Lake Formation
+            permissions.
+
+        - Data lake users do not need to be granted direct permissions on underlying S3 objects, since the
+            Lake Formation service can provide temporary credentials to analytic services to access the
+            S3 data.
+
+
+        - Note that Lake Formation only works with compatible analytic services, like:
+
+            - Athena
+            - QuickSight
+            - Spark running on EMR
+            - Redshift Spectrum
+            - Glue
+
+
+        - The data lake user still needs an associated IAM policy that grants them access to the AWS Glue
+            service, the Lake Formation service, and any required analytic engines (ie Athena).  However, 
+            the user can be granted access to all Glue objects.
+
+          The Lake Formation permissions layer can then be used to control which specific Glue catalog
+            objects can be accessed by the user.
+
+
+
+- Configuring Lake Formation Permissions
+
+    - In the hands-on section, we will:
+
+        1. Create a new data lake user and configure their permissions using IAM permissions
+        2. Update a Glue database and table to use Lake Formation permissions
+        3. Grand Lake Formation permissions to our data lake user
+
+
+
+- Creating a New User with IAM Permissions
+
+    - We'll start by creating a new IAM user that will be our data lake user.  Initially, we'll use IAM
+        to grant our user these permissions:
+
+        1. Permission to access a specific database and table in the Glue Catalog
+
+        2. Permission to use the Amazon Athena service to run SQL queries against the data lake
+
+
+    - First, we'll create an IAM policy that grants the required permissions for using Athena and Glue,
+        but limits those permissions to only 'CleanZoneDB' in the Glue catalog.
+
+      To do this, we'll copy the Amazon-managed policy for Athena, but modify it to limit access to a
+        specific Glue database, and will add S3 permissions to the policy.
+
+        Services > IAM
+          > Policies
+            > Filter Policies: 'AmazonAthenaFullAccess'
+
+              Copy the policy to your clipboard.
+
+
+    - Next, at the top of the page:
+
+        > Create Policy
+           JSON
+           Paste the Athena policy in
+
+
+    - Now, find the section with the Glue permissions.  We'll limit permissions to just the 'CleanZoneDB'
+        database.  Replace the 'Resource' section with this:
+
+        "Resource": [
+            "arn:aws:glue:*:*:catalog",
+            "arn:aws:glue:*:*:database/cleanzonedb",
+            "arn:aws:glue:*:*:database/cleanzonedb*",
+            "arn:aws:glue:*:*:table/cleanzonedb/*"
+        ]
+
+
+    - After the section that provides Glue permissions, we can add new permissions for accessing the S3
+        location where our CleanZoneDB resides.  Add this section to provide those permissions:
+
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetBucketLocation",
+                "s3:GetObject",
+                "s3:ListBucket",
+                "s3:ListBucketMultipartUploads",
+                "s3:ListMultipartUploadParts",
+                "s3:AbortMultipartUpload",
+                "s3:PutObject"
+            ],
+            "Resource": [
+                "arn:aws:s3:::dataeng-clean-zone-cah/*"
+            ]
+        },
+
+
+    - Now, we can add a name for the policy 'AthenaAccessCleanZoneDB' and 'Create Policy'.
+
+
+    - Now, we can create a new user to add our policy to:
+
+        > Services > IAM
+          > Users
+            > Add user
+
+              Name: datalake-user
+              Access type: AWS Management Console access
+              Console Password: (in passwords file)
+              Require Password Reset
+
+              Permissions
+                > Attach Existing Policy
+                    AthenaAccessCleanZoneDB
+
+              Create User
+
+
+    - Now, we create an S3 bucket that we can use to capture the results of any Athena queries that we
+        run:
+
+        > Services > S3
+          > Create bucket
+
+            Bucket name: aws-athena-query-results-dataengbook-cah
+
+            Create bucket
+
+
+    - We can now verify that our new 'datalake-user' only has access to CleanZoneDB, and that the user 
+        can run Athena queries on the table in this database.
+
+        - First, sign out and log back in as datalake-user.
+
+          > Services > Athena
+            > Query Editor
+              > Settings
+                  Query result location: s3://aws-athena-query-results-dataengbook-cah
+
+              Save
+
+              > New Query
+                  Query: select * from cleanzonedb.csvparquet
+
+
+        - If permissions have been configured correctly, the results of the query should appear.
+
+        - Now, log back out of this account and back into our normal account.
+
+
+
+- Transitioning to Managing Fine-Grained Permissions with AWS Lake Formation
+
+    - In this section, we'll modify 'cleanzonedb' and the tables in that database to make use of the
+        Lake Formation permissions model.
+
+
+    - Lake Formation adds a layer of permissions that work in addition to the IAM policy permissions.
+        By default, every database and catalog has a special permission enabled that tells Lake Formation
+        to just use IAM permissions and ignore Lake Formation permissions.  This is sometimes called the
+        'Pass Through' permission.
+
+
+    - Our IAM permissions allowed the 'datalake-user' to access the 'cleanzonedb' database, and all the
+        tables in the database.  Let's set up permissions in Lake Formation:
+
+        > Services > Lake Formation
+
+          A pop-up box will prompt you to add initial users and roles.  Keep 'Add myself' checked.
+
+          'Get Started'
+
+
+    - Now, click on our database:
+
+        > Databases
+          > cleanzonedb
+            > Actions
+              > View Permissions
+
+
+            - The first permission we see is 'DataEngLambdaS3CWGlueRole', which has full permissions on
+                the database.  This is because it is the Role we set up and assigned to the Lambda function
+                that created the databaes.
+
+            - The other permission is the 'IAMAllowedPrincipals' group, which is the Pass-Through 
+                permission.  This allows any user that has been granted permissions to the database 
+                through an IAM policy to access the database.
+
+
+    - To enable Lake Formation permissions on this database, we can remove the 'IAMAllowedPrincipals'
+        permission by clicking 'Revoke'.
+
+      We'll also revoke the 'IAMAllowedPrincipals' permissions on the 'CSVParquet' table.
+
+
+    - To check that permissions have been revoked, we can log back in as 'datalake-user', and we will not
+        be able to run queries against the table.
+
+
+
+- Granting Lake Formation Permissions
+
+    - Now that IAM permissions are disabled, any user that needs access to the database or table will need
+        permissions via Lake Formation.
+
+
+    - Note that we can just use the regular Amazon-managed 'AmazonAthenaFullAccess' policy to allow access
+        to all databases and tables, if we remove the Pass-Through policy on all databases and tables.
+        This is because they would need to be explicitly granted permissions on any database and table
+        with Lake Formation.
+
+
+    - We can also remove the access to the underlying S3 files we added to the IAM policy.  Lake Formation
+        automatically grants access to the underlying S3 data using temporary credentials.
+
+
+    - Here, we'll add specific Lake Formation permissions for our 'datalake-user' to access the database
+        and table:
+
+        > Services > Lake Formation
+           > CleanZoneDB
+             > View Tables
+               > CSVParquet
+                 > Actions/Grant
+
+                    IAM Users and Roles: datalake-user
+                    Table permissions: Select
+
+                    'Grant'
+
+
+    - Now, we should be able to log back in as 'datalake-user' and query the table.

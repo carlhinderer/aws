@@ -168,12 +168,12 @@
 
 
     - When writing files to S3, you have the option of transforming the incoming data to Parquet or ORC
-        format, or to perform custom transformations of the dta with a Lambda function.
+        format, or to perform custom transformations of the data with a Lambda function.
 
 
     - When to use:
 
-        - You want to receive streamingdata, buffer it for a period, and then write the data to one of
+        - You want to receive streaming data, buffer it for a period, and then write the data to one of
             the supported targets.
 
 

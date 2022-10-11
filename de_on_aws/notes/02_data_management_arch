@@ -266,7 +266,7 @@
 
 
     - In a star schema, data is normalized by splitting data into dimension tables.  However, individual
-        dimension tables are typically kept denormalized so that ll related attributes of a dimensional
+        dimension tables are typically kept denormalized so that all related attributes of a dimensional
         topic are found in a single table.
 
       This makes queries easier to write, but can lead to data duplication and inconsistencies.  Large
@@ -440,7 +440,7 @@
 
     - The Ingestion Layer
 
-        - This layer is responsible for connecting to diverse types of data sources and brining their
+        - This layer is responsible for connecting to diverse types of data sources and bringing their
             data into the storage layer.
 
 
@@ -486,7 +486,7 @@
         - Higher costs and delays in gaining insights
 
 
-    - In the cloud-native 'lake house architecture', organizations create a single envioronment to
+    - In the cloud-native 'lake house architecture', organizations create a single environment to
         collect, manage, and process all their structured and unstructured data in a simple and integrated
         fashion.
 
