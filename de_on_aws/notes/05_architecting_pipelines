@@ -1,0 +1,314 @@
+-----------------------------------------------------------------------
+| CHAPTER 5 - ARCHITECTING DATA ENGINEERING PIPELINES                 |
+-----------------------------------------------------------------------
+
+- Approaching the Data Pipeline Architecture
+
+    - It's a good idea to start with a small single use case that can be achieved in a reasonable amount
+        of time.  While doing this, also make sure to keep the big picture in mind.
+
+
+    - A DE can take an approach similar to an arcitect preparing for building:
+
+        - Gather information from project sponsors and data consumers on their requirements.  Learn what
+            their objectives are, what kind of tools they want to use to consume the data, required data
+            transformations, and so on.
+
+        - Gather information on the available data sources.  This may include what systems store the raw
+            data, what format the data is in, and who the system and data owners are.
+
+        - Determine what types of tools are available and ay be best suited for these requirements.
+
+
+
+- Design Sequence
+
+    Data Sources  ->  Ingestion Tools  ->  Data Transformations  ->  Data Access  ->  Data Consumers
+
+
+        1. Understand the consumers, their business objectives, and their requirements
+
+        2. Determine what types of tools the consumers will use to access the data
+
+        3. Understand which potential data sources might be available
+
+        4. Determine the toolsets that will be used to ingest data
+
+        5. Understand the required data transformations
+
+
+
+- Identifying Data Consumers and Understanding Their Requirements
+
+    - Types of Data Consumers
+
+        - Business Users
+            - Wants to access data via interactive dashboards and other visualizations
+            - Example: A sales manager wants to see charts showing last week's sales
+
+        - Business Applications
+            - Other applications may be downstream consumers
+            - Example: Spotify shows users summary of their listening habits
+
+        - Data Analyst
+            - Digs deeper into large datasets to answer specific questions with complex analysis
+            - SQL is the primary tool
+            - Example: What percentage of customers browse for more than 10 minutes but don't buy anything
+
+        - Data Scientist
+            - Creates ML models to identify non-obvious patterns in large datasets
+            - Makes future predictions based on historical data
+            - Need to access large quantities of diverse datasets
+
+
+    - We should find out if there are existing tools that are standard across the organization (ie Tableau)
+        that users already have experience with.
+
+
+
+- Identifying Data Sources and Ingesting Data
+
+    - While most data sources will be internal to the organization, some projects may require enriching
+        data from 3rd party sources.  Today, there are many data marketplaces where diverse datasets can
+        be subscribed to or accessed for free.
+
+
+    - Information we should gather includes:
+
+        - Details about the source system containing the data (database, files, S3 bucket, streaming source)
+
+        - Who is the owner of the source system?  Who is the owner of the source data?
+
+        - What frequency does the data need to be ingested on?  (streaming, every few hours, once a day)
+
+        - What tools can be used for data ingestion?
+
+        - What is the raw/ingested format of the data? (CSV, JSON, native DB format)
+
+        - Does the data contain PII or other types of data subject to governance controls?
+
+
+    - Example
+
+        - Data Source: Customer Data
+
+            - Stored in MySQL database
+            - System owner: Database team
+            - Data owner: Marketing team
+            - Data load frequency: Daily
+            - Ingestion: DMS for replication with Glue job to consolidate changes
+
+
+        - Data Source: Sales Force Data
+
+            - Stored in Sales Force SaaS
+            - System owner: SalesForce Admin team
+            - Data owner: Enterprise sales team
+            - Data load frequency: Hourly
+            - Ingestion: AppFlow or Sales Force dataloader.io
+
+
+        - Data Source: Mobile App
+
+            - Metrics in real-time from company's mobile app used by sales team
+            - System owner: AppDev team
+            - Data owner: Enterprise sales team
+            - Data load frequency: Near real-time
+            - Ingestion: Streaming service: Kinesis or MSK are possibilities
+
+
+
+- Identifying Data Transformations and Optimizations
+
+    - File Format Optimizations
+
+        - Many files are ingested as CSV, XML, JSON, or other plaintext formats.  These are good for
+            manually exploring data.
+
+        - Binary formats, such as Parquet, are much better for computer-based read-heavy analytics.
+
+
+    - Data Standardization
+
+        - Data from different sources may have different naming conventions for the same item.
+
+        - Dates are often in different formats and need to be converted to the same format.
+
+        - It's often a good idea to have a corporate-wide convention for analytics formats.
+
+
+    - Data Quality Checks
+
+        - We may need to verify data quality, and highlight any ingested data that does not meet the
+            expected quality standards.
+
+
+    - Data Partitioning
+
+        - A common optimization strategy for analytics is to partition the data, grouping at the physical
+            storage layer by a field that is often used in queries.
+
+        - For example, if data is often queried by a date range, then data can be partitioned by a date
+            field.  All sales data for a specific month would be stored in the same S3 prefix.
+
+        - When a query is run that selects data for a specific day, the analytic engine only needs to read
+            data in the directory for that specific month.
+
+
+    - Data Denormalization
+
+        - In an RDBMS, data is typically normalized and linked via foreign keys.  
+
+        - In data lakes, combining data from multiple tables into a single table can often improve query
+            performance.  Data denormalization takes data from 2 or more tables and creates a new table.
+
+
+    - Data Cataloging
+
+        - We should also include cataloging during transformations.  We should ensure that ll datasets in
+            the data lake are referenced in the data catalog and can add additional business metadata.
+
+
+
+ - Whiteboarding Data Transformation
+
+    - Important questions to ask when deciding on transformations includes:
+
+        - Is there an existing set of standardized column name definitions and formats that can be
+            referenced?
+
+        - What additional business metadata should be captured for datasets?
+
+        - What format should optimized files be stored in?
+
+        - Is there an obvious field that data should be partitioned by?
+
+        - Are other required transformations obvious at this point?  Should data be denormalized?
+
+        - What skills does the team have?  Does the team have experience creating Spark jobs using PySpark?
+
+
+    - We will be creating a data lake with 3 zones:
+
+        1. Landing zone
+        2. Clean zone
+        3. Curated zone
+
+
+    - Basic ideas about our pipeline:
+
+        - Raw files are ingested into the Landing Zone will usually be in text formats like CSV and XML.
+            When files are ingested, information is captured in the data catalog.
+
+        - We'll lean towards creating Spark ETL jobs using PySpark.  This means AWS Glue may be a good
+            solution for data transformation.
+
+        - We will have a process to run data quality checks in the landing zone.  If the data quality
+            checks pass, we will standardize the data (uniform column names and data types) and convert
+            the files into the Parquet format, writing out the new files to the clean zone.  We will also
+            add these new files to our data catalog.
+
+        - Another piece of our pipeline will perform additional transformations.  For instance, data from
+            a relational database will be denormalized, and tables can be enriched with additional data.
+            We will write out the transformed data to the curated zone, partitioning the files out by
+            date as they are written out.  Again, we will add the newly written files to our data catalog,
+            along with relevant business metadata.
+
+
+
+- Loading Data into Data Marts
+
+    - Many tools can work directly with the data lake.  These include tools for ad hoc SQL queries (Athena),
+        data processing tools (EMR and Glue), and even ML tools (SageMaker).
+
+
+    - However, there are times when the use of highly structured schemas may best meet the analytics 
+        requirements of the use case.  These schemas provide much lower latency, higher performance reads
+        of the data.  In these cases, loading data from the data lake into a data mart makes sense.
+
+
+    - In analytic environments, a data mart is most often a DW system (ie Redshift), but it could also be
+        a RDBMS (ie RDS MySQL) depending on requirements.  In either case, the system will have local storage
+        and local compute power to offer good performance.
+
+
+
+- Hands-On - Architecting a Sample Pipeline
+
+    - The open source 'diagrams.net' (aka 'draw.io') is a good free tool for drawing diagrams.
+
+        $ drawio
+
+
+    - The AWS Data Exchange has a lot of data sets available, some free and some for a fee.
+
+
+    - Marketing Team Requirements
+
+        - This project will improve analytics for the marketing team.  They need access to real-time
+            customer behavior and longer-term customer trends.
+
+        - Visualizations they will want include:
+
+            - A heatmap to show website activity in different geographical locations
+            - Redemptions of coupons by product category
+            - Top ad campaign referrals
+            - Spend by zip code in a previous period vs the current period
+
+        - All visualizations should allow the user to select a custom period, be able to filter custom
+            fields, and should be able to drill down from summary views into detailed information.  Data
+            should be refreshed at least on an hourly basis.
+
+
+    - Data Analyst Team Requirements
+
+        - Identify the top 10% of customers over the past x days and identify top product categories.
+
+        - Determine the average time a customer spends on the website, and the number of products they
+            browser vs the number of products they purchase.
+
+        - Identify the top returned products over the past day/month/week.
+
+        - Compare the sales by zip code this month vs sales by zip code in the same month 1 year ago,
+            grouped by product category.
+
+        - For each customer, keep a running total of:
+
+            - Widget purchases (grouped by category)
+            - Average spend per sale
+            - Average spend per month
+            - Number of coupons applied
+            - Total coupon value
+
+
+    - Data Science Team Requirements
+
+        - Want to build a model that can predict a widget's popularity based on weather in a specific
+            location.
+
+        - Model must be updated at least once a day based on latest weather and sales information.
+
+        - Need ad hoc SQL access to weather, website clickstream logs, and sales data for at least the
+            last year.
+
+
+    - Ingestion Concerns
+
+        - Will need:
+
+            - Access to Customer, Product, Returns, and Sales databases
+            - Clickstream data from web server logs
+            - Third-party weather data
+
+        - Daily update good enough for databases, need near-real-time streaming of clickstream web server 
+            log files
+
+        - DMS is a good choice for database replication.  We'll replicate the databases to the landing
+            zone.
+
+        - Kinesis agent to capture web server log changes, Kinesis Firehose to receive event streams.
+            We'll do validation and transformation into Parquet in the Lambda function, so this can write
+            directly to clean zone.
+
+        - Data will be partitioned by date.  Partitioning the database files and weather by day, and
+            partitioning the clickstream data by hour are good strategies.
