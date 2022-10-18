@@ -1,0 +1,701 @@
+-----------------------------------------------------------------------
+| CHAPTER 6 - INGESTING BATCH & STREAMING DATA                        |
+-----------------------------------------------------------------------
+
+- The 5 Vs of Data Engineering Challenges
+
+    1. Variety         # Diverse types and formats of data
+    2. Volume          # Size of the data set
+    3. Velocity        # How quickly the data is generated and needs to be ingested
+    4. Veracity        # Quality, completeness, credibility of data
+    5. Value           # Value data can provide business with
+
+
+
+- Data Variety
+
+    - Structured Data
+
+        - Organized according to a data model
+        - Represented as a series of rows and columns
+        - Every column has a type and every row has the same number of columns
+        - Easily ingested into data lakes and DWs
+
+        - Common examples:
+            - RDBMS
+            - CSV or TSV
+            - Spreadsheets in xls format
+            - Data from online forms
+
+
+    - Semi-Structured Data
+
+        - Schema does not have to be strictly defined
+        - Generally contains internal tags that identify data elements
+        - Each record may contain different elements or fields
+
+        - Common examples:
+            - JSON
+            - XML
+
+
+    - Unstructured Data
+
+        - Data does not have predefined structure or schema
+        - Requires specialized tools to analyze (ie ElasticSearch for text)
+
+        - Common examples
+            - Text data in a word document, PDF, or email
+            - Media files (audio, video, images)
+
+
+
+- Data Volume
+
+    - We need to think about both the current size of the data and it's daily/monthly/yearly growth.  This
+        will help us budget for the associated costs.
+
+    - If we have a gigantic amount of historical data, we might be better off ingesting it with a Snow
+        device.
+
+
+
+- Data Velocity
+
+    - For ingestion, data might be loaded on a batch schedule once a day or a few times a day.  Other data
+        may be streamed from the source to the target continuously.
+
+    - For example, BMW streams TBs of anonymous telemetry data each day into AWS.
+
+    - We need to know how quickly our data is generated, and also how quickly it needs to be processed.
+        Both will determine how we ingest the data.
+
+
+
+- Data Veracity
+
+    - Data veracity considers the quality, completeness, and accuracy of the data.
+
+    - For instance, we might get incomplete sensor readings or spreadsheets with errors or missing values
+        in them.
+
+
+
+- Data Value
+
+    - We could ingest TBs of data and clean and process it in multiple ways, but if it doesn't bring value
+        to the business, we have wasted time and money.
+
+
+
+- Questions to Ask
+
+    - What is the format of the data?
+
+    - How much historical data is available?  What is the total size of the historical data?
+
+    - How much data is generated on a daily/weekly/monthly basis?
+
+    - Does the data currently get streamed somewhere, and can we tap into the stream?
+
+    - How frequently is the data updated?
+
+    - How will this data source add value to the business?
+
+
+
+- Ingesting Data From a Relational Database
+
+    - Organizations often have multiple siloed databases, and they want to bring the data from these
+        varied databases into a central location for analytics.  It's common to have both historical
+        data and ongoing new and changed data in these projects.
+
+
+    - AWS DMS
+
+        - DMS is the primary service for ingesting data from a database in AWS.
+
+        - Intended for either doing a one-off ingestion or replicating data on an ongoing basis.
+
+        - Target is either a different DB engine or an S3-based data lake.
+
+        - Managed service, not serverless.  DMS provisions one or more EC2 servers as replication
+            instances.  They connect to the source, read data, prepare it, and connect to the target and
+            write the data.
+
+
+    - AWS Glue
+
+        - AWS Glue, a Spark processing engine, can make connections to several data sources, including
+            JDBC sources.  Glue is well suited to certain use cases.
+
+        
+        - Full One-Off Loads From One or More Tables
+
+            - Glue can make a JDBC connection and download data from tables (basically a SELECT *), reading
+                the contents into Spark memory.
+
+            - At that point, you can use Spark to write it to S3 in an optimized format like Parquet.
+
+
+        - Initial Full Loads From a Table, and Subsequent Loads of New Records
+
+            - Glue has a concept called 'bookmarks', which enables Glue to keep track of which data was
+                previously processed, and then on subsequent runs only process new data.
+
+            - Glue does this by having you identify a column (or columns) in the table that will serve as
+                a bookmark key.  The values in this bookmark key must be monotonically increasing.  An
+                auto-incrementing ID key is a good example.
+
+            - Note that this process is unable to detect updated or deleted rows.  Something like an audit
+                table, or any table that is append-only, is a good use case for this functionality.
+
+
+        - Creating Glue Jobs with Lake Formation
+
+            - Lake Formation includes several blueprints to assist in automating some common ingestion
+                tasks.  It has a blueprint for ingesting from a database source, with simple requirements
+                specified in the Management Console.
+
+            - Once configured, Lake Formation creates:
+                - The Glue Job for ingesting from the database source
+                - The Glue Crawlers for adding newly ingested data into the Glue data catalog
+                - The Glue Workflow for orchestrating the different components
+
+
+
+- Other Ways to Ingest Data From a Database
+
+    - Amazon EMR provides a simple way to deploy common Hadoop tools.  Some of these tools are useful for
+        ingesting data from a database.  For instance, you can use Spark or Sqoop to transfer data from
+        an RDBMS into a Data Lake.
+
+
+    - If you're running MariaDB, MySQL, or Postgres on Amazon RDS, you can use RDS functionality to export
+        a DB snapshot to S3 in Parquet format.  This is the easiest way to move data into S3.
+
+
+    - There are 3rd party tools like Qlik Replicate that move data from a wide variety of sources and
+        targets.  These can handle legacy providers such as DB2, RMS, etc.
+
+
+    - Your database engine may provide tools for exporting data in a flat format that can be then 
+        transferred to S3.  Some database engines even have more advanced tools, like Oracle GoldenGate,
+        that can generate CDC data as a Kafka stream.  These tools are usually licensed separately and
+        can be expensive.
+
+
+
+- Deciding on the Best Approach for Ingesting From a Database
+
+    - Size of the Database
+
+        - If the total size of the table you want to load is large, doing a full nightly load is not a
+            good approach.  The better option would be to do an initial load, then constantly sync
+            updates using CDC.
+
+        - For very large databases, you can use a Snowball to load the data, and Amazon will load it into
+            S3 for you.  AWS DMS will capture all CDC changes while the Snowball is en route so that you
+            can create an ETL job to apply changes to the full data load.
+
+        - For smaller databases, you may be able to Glue or a similar tool to load the whole DB into S3
+            on a scheduled basis.  This is the simplest method.
+
+
+    - Database Load
+
+        - If you have a DB with a consistent production load at all times, you will want to minimize the
+            amount of additional load you place on the server.
+
+        - In this case you can do a full sync, preferably from a read replica, with DMS.  DMS can then use
+            the database log to stream ongoing CDC changes.
+
+        - If a smaller DB is running on RDS, you can use the snapshot to S3 functionality, which places no
+            load on your source DB.
+
+
+    - Data Ingestion Frequency
+
+        - Some analytics use cases are well suited to analyzing data ingested on a fixed schedule (such as
+            every night).
+
+        - If the use case requires access to data as soon as possible, using DMS to ingest CDC data is the
+            best approach.
+
+
+    - Technical Requirements and Compatibility
+
+        - It is very important to involve the database owner and admin team upfront to technically evaluate
+            the proposed solution.  A DE team may come up with a solution, but that solution can hit
+            security or technical roadblocks, significantly delaying the project.
+
+        - For example, using DMS CDC capabilities with MySQL requires binary logging is enabled on the
+            source system.
+
+
+
+- Ingesting Streaing Data
+
+    - Data that is continually generated and needs to be ingested in near-real-time is an increasingly 
+        common in analytics projects.  Common sources of this type of data include:
+
+        - Data from IoT devices
+        - Telemetry data from vehicles
+        - Sensor data (from manufacturing machines, weather stations, etc.)
+        - Live gameplay data from mobile games
+        - Mentions of the company brand on social media
+
+
+    - The 2 primary services for ingesting streaming data within AWS are Kinesis and MSK.  They both offer
+        pub-sub message processing.  Both can scale up to handle millions of messages per second.
+
+
+
+- Kinesis vs Managed Streaming for Kafka
+
+    - Serverless services vs Managed services
+
+        - Kinesis is serverless.  You configure the number of shards for your stream, and AWS automatically
+            configures the required compute infrastructure.
+
+        - With Firehose, you don't even have to specify the number of shards.  It automatically scales up
+            and down in response to throughput changes without requiring configuration.
+
+        - MSK is a managed service, so you need to select EC2 instance types, configure VPC settings, and
+            fine-tune Kafka settings.  You also need to select the version of Kafka you want to use.
+
+        - Kinesis is much easier to set up and configure, but MSK provides a lot more options for
+            configuration and fine-tuning.  MSK requires existing Kafka knowledge.
+
+
+    - Open source flexibility vs Proprietary Software with Strong AWS Integration
+
+        - Kafka is open source, while Kinesis is proprietary.
+
+        - Kafka has a lot of connectors and integrations available for a wide variety of systems.
+
+        - Kinesis has strong integration with other AWS services, like S3, Redshift, and AWS Elasticsearch.
+            It also provides an integration with a limited set of external services like Splunk and DataDog.
+
+
+    - At-Least-Once vs Exactly-Once
+
+        - Kinesis provides an at-least-once message processing guarantee.  Duplication is possible.
+
+        - Kafka has the ability to configure exactly-once message processing.
+
+        - With Kinesis, you need to build logic for anticipating and handling duplicate messages if you
+            need exactly-once functionality.
+
+
+    - Single Processing Engine vs Niche Tools
+
+        - Kafka is most commonly compared to Kinesis Data Streams, since they both provide a powerful way
+            to process a variety of data types.
+
+        - If your use case involves streaming audio or video data, Kinesis Video Streams can simplify this
+            type of processing.
+
+        - If your use case involves writing messages out to S3, Redshift, or Amazon Elasticsearch, Kinesis
+            Data Firehose makes this simple.
+
+
+
+- Ingesting Data with AWS DMS
+
+    - We'll replicate a MySQL database into an S3-based data lake.  The steps we will take include:
+
+        1. Create a new MySQL database
+        2. Load a MySQL demo database using an EC2 instance
+        3. Set up a DMS replication instance and configure endpoints and tasks
+        4. Run the DMS full load
+        5. Run a Glue Crawler to add the tables that were newly loaded into S3 to the data catalog
+        6. Query the data with Amazon Athena
+
+
+
+- Creating a New MySQL Database Instance
+
+    - Navigate to Services > RDS
+        > Database
+          > Create Database
+            > Easy Create
+
+              Engine type: MySQL
+              DB Instance size: Free tier (db.t2.micro)
+              DB Instance identifier: dataeng-mysql-1
+              Master password: Stored in file
+
+              'Create Database'
+
+
+    - Click on the name of the database you just created and take note of the 'Endpoint' (the db instance's
+        hostname).
+
+
+
+- Loading the Demo Data Using an EC2 Instance
+
+    - Navigate to Services > EC2
+        > Instances
+          > Launch Instances
+
+            Image type: Amazon Linux 2 AMI (HVM), SSD Volume Type
+            Instance type: t2.micro
+
+            > Configure instance details
+                Auto-assign Public IP: Enable
+
+                User data:
+
+                (Replace with password and host of db we just created)
+                #!/bin/bash
+                yum install -y mariadb
+                curl https://downloads.mysql.com/docs/sakila-db.zip -o sakila.zip
+                unzip sakila.zip
+                cd sakila-db
+                mysql --host=<HOST> --user=admin --password=<PASSWORD> -f < sakila-schema.sql
+                mysql --host=<HOST> --user=admin --password=<PASSWORD> -f < sakila-data.sql
+
+
+    - Need to put quotes around MySQL password if it contains special characters!
+
+
+    - This script:
+
+        1. Installs MariaDB (which includes a MySQL client)
+        2. Downloads the 'Sakila' demo database and unzips it
+        3. Connects to MySQL and runs the script to create the schema
+        4. Connects to MySQL and runs the script to insert the demo data
+
+
+    - Next, to finish creating our VM:
+
+        Add Tags:
+          Key: Name
+          Value: dataeng-book-ec2
+
+        Configure Security Group:
+          Assign a security group
+            Select an existing security group: default
+
+        'Launch'
+
+
+    - Create a key pair ('dataeng-book-key') and download it.
+
+        'Launch Instances'
+
+
+
+- Creating an IAM Policy and Role for DMS
+
+    - Now, we'll create an IAM policy and role that will allow DMS to write to our target S3 bucket.
+
+
+    - Navigate to Services > IAM
+        > Policies
+          > Create policy
+
+            JSON (Replace bucket name with initials)
+
+            {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Action": [
+                            "s3:*"
+                        ],
+                        "Resource": [
+                            "arn:aws:s3:::dataeng-landing-zone-cah",
+                            "arn:aws:s3:::dataeng-landing-zone-cah/*"
+                        ]
+                    }
+                ]
+            }
+
+            Name: DataEngDMSLandingS3BucketPolicy
+
+            'Create Policy'
+
+      This policy grants permissions for all S3 operations on, and in, the 'dataeng-landing-zone-cah'
+        bucket.
+
+
+    - Next, we'll create a Role to use the policy:
+
+        > Roles
+          > Create Role
+
+              Trusted Entity: AWS Service: DMS
+              Policy: Policy we just created
+              Name: DataEngDMSLandingS3BucketRole
+
+              'Create Role'
+
+
+    - Click on the newly created role and copy the 'Role ARN' property.  We'll use it in the next section.
+
+        arn:aws:iam::087097696457:role/DataEngDMSLandingS3BucketRole
+
+
+
+- Configuring DMS Settings and Performing a Full Load from MySQL to S3
+
+    - Navigate to Services > DMS
+        > Replication Instances
+          > Create Replication Instance
+
+            Name: mysql-s3-replication
+            Instance: dms.t3.micro
+            Allocated storage: 10
+            VPC: Default VPC
+            Multi AZ: Dev or test workload (Single-AZ)
+
+            'Create'
+
+
+    - Now, select 'Endpoints' to create the source endpoint.
+
+        > Create Endpoint
+          
+          Source Endpoint: Select RDS DB Instance
+          RDS Instance: MySQL DB we created earlier
+
+          > Endpoint configuration
+        
+              Access to endpoint database: Provide access information manually
+              Password: MySQL password
+
+              'Create Endpoint'
+
+
+    - Select 'Endpoints' again to create the target endpoint.
+
+        > Target Endpoint
+
+            Target Engine: Amazon S3
+            Service Access Role ARN: ARN we copied above
+            Bucket name: dataeng-landing-zone-cah
+            Bucket folder: sakila-db
+
+            Add new setting:
+              Setting: AddColumnName
+              Value: True
+
+              'Create Endpoint'
+
+
+    - Next,
+
+        > Database Migration Tasks
+          > Create Task
+
+            Task Identifier: dataeng-mysql-s3-sakila-task
+            Replication Instance: mysql-s3-replication
+            Source database endpoint: dataeng-mysql-1
+            Target database endpoint: dataeng-s3-clean-sakila-parquet
+            Migration type: Migrate existing data
+
+            Table Mappings:
+              Add a new selection rule
+                Leave 'Schema name' and 'Table name' set to '%'
+
+                'Create Task'
+
+
+    - The migration will begin.  We can click on 'Table Stastistics' to monitor the progress.
+
+      Our previously configured S3 event for all CSV files written to the landing zone bucket will be
+        triggered for each file that DMS loads.  This will register each table in the AWS Glue data
+        catalog and create a new Parquet version of each file in the CLEAN ZONE bucket.
+
+
+
+- Querying Data with Amazon Athena
+
+    - First, we need to create a new Amazon S3 folder to store the results of our Athena queries.
+        Navigate to:
+
+        > Services > S3
+          > Create Bucket
+
+              Name: athena-query-results-cah
+
+              'Create Bucket'
+
+
+    - Now, we navigate to:
+
+        > Services > Athena
+          > Query Editor
+
+            > Manage
+                Location of query result: Bucket we just created
+
+
+    - Now, back in the Editor tab, select the 'sakila' database.
+
+        New Query: select * from film limit 20;
+
+
+    - Now, we can delete the Migration Task and Migration Instance so they won't accrue any more charges.
+
+
+
+- Ingesting Streaming Data
+
+    - We'll use Kinesis to ingest streaming data.  To generate data, we'll use the Amazon Kinesis Data
+        Generator.  Then, we'll:
+
+        1. Configure Kinesis Data Firehose to ingest streaming data and write the data out to S3
+        2. Configure Amazon KDG to create a fake source of streaming data
+
+
+
+- Configuring Kinesis Data Firehose for Streaming Delivery to S3
+
+    - Navigate to:
+
+       Services > Kinesis
+         > Kinesis Data Firehose
+           > Create Delivery Stream
+
+             Source: Direct PUT
+             Destination: S3
+             Delivery stream name: dataeng-firehose-streaming-s3
+
+             Transform records with AWS Lambda: Disabled    # Can be used for validation or light processing
+             Convert record format: Disabled                # Can be used to transform to ORC or Parquet
+
+             S3 Bucket: dataeng-landing-zone-cah
+             S3 Bucket prefix: streaming/!{timestamp:yyyy/MM/}
+             S3 Bucket error output prefix: !{firehose:error-output-type}/!{timestamp:yyyy/MM/}
+
+             > Buffer hints, compressions, and encryption
+                 Buffer Size: 1 MB
+                 Buffer Interval: 60 s
+
+            'Create Delivery Stream'
+
+
+
+- Configuring the Kinesis Data Generator
+
+    - KDG is an open source tool from AWS that can be used to generate customized data streams and can
+        send that data to Kinesis Data Streams or Kinesis Data Firehose.
+
+
+    - The Sakila database we used earlier was for a company that produced classic movies and rented them
+        out at DVD stores.  Now, they are making the classic movies available for streaming.
+
+      The company receives information about movies being streamed in real time.  Using KDG, we'll 
+        simulate the streaming data being received:
+
+        - Streaming timestamp
+        - Whether the customer rented, purchased, or watched the film trailer
+        - 'film_id' that matches the Sakila DB
+        - The distribution partner name
+        - Streaming platform
+        - The state the movie was streamed in
+
+
+    - KDG is a collection of HTML and JS files that can be run directly in your browser and can be 
+        accessed as a static site in Github.  To use KDG, you need to create an Amazon Cognito user
+        in your AWS account, then use that user to log into KDG on the GitHub account.
+
+
+    - AWS has created an Amazon CloudFormation template that you can deploy in your AWS account to create
+        the required Amazon Cognito user.  This CloudFormation template creates an AWS Lambda function
+        to perform the required setup.
+
+        https://awslabs.github.io/amazon-kinesis-data-generator/
+
+
+    - Switch to the region you've been using for exercises in this book, then create the CloudFormation
+        template.  You'll need to supply a username and password for the Cognito user.
+
+
+    - Once the stack has been successfully deployed, go to the Outputs tab and copy the 
+        'KinesisDataGeneratorUrl' value.  Open that link in a new tab.
+
+        Username and Password: Ones we just set up
+        Region: Same region we have been using
+        Stream/Delivery Stream: Kinesis Data Firehose stream we just set up
+        Records per second: 10
+
+        Record Template:
+
+        {
+            "timestamp":"{{date.now}}",
+            "eventType":"{{random.weightedArrayElement(
+                {
+                    "weights": [0.3,0.1,0.6],
+                    "data": ["rent","buy","trailer"]
+                }
+            )}}",
+            "film_id":{{random.number(
+                {
+                    "min":1,
+                    "max":1000
+                }
+            )}},
+            "distributor":"{{random.arrayElement(
+                ["amazon prime", "google play", "apple itunes",
+                 "vudo", "fandango now", "microsoft", "youtube"]
+            )}}",
+            "platform":"{{random.arrayElement(
+                ["ios", "android", "xbox", "playstation", "smarttv", "other"]
+            )}}",
+            "state":"{{address.state}}"
+        }
+
+
+    - Click 'Send Data' to start sending streaming data to our Kinesis Data Firehose delivery stream.
+        According to the configuration we set up, the data we are sending is going to be buffered for
+        30 seconds, and will then be sent to our Landing Zone S3 bucket.  This will continue as long
+        as we leave the KDG running.
+
+      Allow KDG to send data for 5-10 minutes, then click 'Stop Sending Data to Kinesis'.  During the
+        time it was running, it will have created enough data for our later chapters, where we join
+        this data with data we migrated from our MySQL database.
+
+
+
+- Adding Newly Ingested Data to the Glue Data Catalog
+
+    - In this section, we add a Glue Crawler to examine the newly ingested data, infer the schema, and
+        automatically add the data to the Glue Catalog.  Once we do this, we can query the newly ingested
+        data with services such as Athena.
+
+        > Services > Glue
+          > Crawlers
+            > Add Crawler
+
+              Name: dataeng-streaming-crawler
+
+              Add a Data Store: Include Path: s3://dataeng-landing-zone-<initials>/streaming
+
+              Choose IAM Role: Create New IAM Role
+                Suffix: glue-crawler-streaming-data-role
+
+              Create a Schedule for this Crawler: Run on-demand
+
+              Configure Crawler's Output:
+                > Add Database
+                   Name: streaming-db
+                     'Create'
+                     'Finish'
+
+                     'Run Crawler'
+
+
+    - When the crawler has finished running, it should have created a new table for the newly ingested
+        streaming data.
+
+
+
+- Querying the Data with Amazon Athena
+
+    - 

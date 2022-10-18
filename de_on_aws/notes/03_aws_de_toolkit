@@ -71,7 +71,7 @@
     - When not to use:
 
         - If you want to sync to the same database type (ie Oracle to Oracle), native tools are often 
-            better
+            better.
 
 
 

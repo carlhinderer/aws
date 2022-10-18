@@ -17,7 +17,7 @@
         - Gather information on the available data sources.  This may include what systems store the raw
             data, what format the data is in, and who the system and data owners are.
 
-        - Determine what types of tools are available and ay be best suited for these requirements.
+        - Determine what types of tools are available and may be best suited for these requirements.
 
 
 
@@ -165,7 +165,7 @@
 
     - Data Cataloging
 
-        - We should also include cataloging during transformations.  We should ensure that ll datasets in
+        - We should also include cataloging during transformations.  We should ensure that all datasets in
             the data lake are referenced in the data catalog and can add additional business metadata.
 
 
@@ -265,7 +265,7 @@
         - Identify the top 10% of customers over the past x days and identify top product categories.
 
         - Determine the average time a customer spends on the website, and the number of products they
-            browser vs the number of products they purchase.
+            browse vs the number of products they purchase.
 
         - Identify the top returned products over the past day/month/week.
 

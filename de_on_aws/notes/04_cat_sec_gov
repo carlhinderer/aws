@@ -24,7 +24,7 @@
         - POPIA (South Africa)
 
 
-    - These lasws are complex, but they generally involve individuals having the right to know what data
+    - These laws are complex, but they generally involve individuals having the right to know what data
         a company holds about them, strict controls about data being processed, and in some cases the right
         to be deleted from a company's systems.
 
@@ -49,7 +49,7 @@
 
 - PII (Personally Identifiable Information) and Personal Data
 
-    - PII is used to reference any information ahtat can be used to identify an individual.  This includes
+    - PII is used to reference any information that can be used to identify an individual.  This includes
         information such as Full Name, SSN, IP address, and photos or videos.
 
       PII also covers any information about a specific aspect of an individual (such as a medical condition,
@@ -127,7 +127,7 @@
         number of values like SSNs or names.
 
       It's easy to create a rainbow table with hashes of all possible SSNs and most names.  You can salt
-        the hash, but it's still not recommended to hash data type with a limited set of values.
+        the hash, but it's still not recommended to hash a data type with a limited set of values.
 
 
 

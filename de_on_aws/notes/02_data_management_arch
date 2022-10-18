@@ -299,7 +299,7 @@
 
 
     - A data mart is often a set of denormalized fact tables organized into a much simpler schema than
-        the DW.  They are faster to build, simpler to understand, and easier to build.
+        the DW.  They are faster to build, simpler to understand, and easier to query.
 
 
     - Data marts can be built top-down (data taken from the DW) or bottom-up (taken directly from that
@@ -344,7 +344,7 @@
 
             - Custom scripts
             - A cloud-native ELT service like AWS Glue
-            - A specialized commercial ETL tool like Informatica, Talend, DataStage, Microsoft, Talend
+            - A specialized commercial ETL tool like Informatica, Talend, DataStage, Microsoft
 
 
     - ELT Pipeline
