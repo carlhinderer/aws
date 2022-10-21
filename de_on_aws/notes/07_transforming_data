@@ -425,3 +425,270 @@
             ACID transactions for inserts, updates and deletes.  It also supports time travel.
 
         - Delta Lake is available both open source and as a fully supported commercial version.
+
+
+
+- Creating a New Data Lake - The Curated Zone
+
+    - In this exercise, we're going to use AWS Glue Studio to create an Apache Glue job that joins the
+        streaming data with the data we migrated from the MySQL database.
+
+
+    - First, we'll create a new S3 bucket for the curated zone of our data lake.
+
+        > Services > S3
+          > Create Bucket
+
+            Name: dataeng-curated-zone-cah
+
+            'Create Bucket'
+
+
+    - Now, add the new bucket to the Glue catalog:
+
+        > Services > Glue
+          > Databases
+            > Add Database
+
+              Name: curatedzonedb
+
+
+
+- Creating a New IAM Role for the Glue Job
+
+    - To configure the Glue job using Glue Studio, we'll need an IAM role with the following permissions:
+
+        - Read source S3 bucket
+        - Write to target S3 bucket
+        - Access to Glue temporary directories
+        - Write logs to Amazon CloudWatch
+        - Access to all Glue API actions (to create new databases and tables)
+
+
+    - To create the new IAM Policy:
+
+        > Services > IAM
+          > Policies
+            > Create Policy
+
+            JSON:
+
+            {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Action": [
+                            "s3:GetObject"
+                        ],
+                        "Resource": [
+                            "arn:aws:s3:::dataeng-landing-zone-cah/*",
+                            "arn:aws:s3:::dataeng-clean-zone-cah/*"
+                        ]
+                    },
+                    {
+                        "Effect": "Allow",
+                        "Action": [
+                            "s3:*"
+                        ],
+                        "Resource": "arn:aws:s3:::dataeng-curated-zone-cah/*"
+                    }
+                ]
+            }
+
+            Name: DataEngGlueCWS3CuratedZoneWrite
+
+
+    - To create the new IAM Role:
+
+        > Services > IAM
+          > Roles
+            > Create Role
+
+              # This allows Glue to assume this role to run transformations
+              Trusted Entity: AWS Service: Glue
+
+              Attach Permissions: Policy we just created
+
+              Also, search for 'AWSGlueServiceRole' and select the role.  This managed provides access to
+                temporary directories used by Glue, as well as CloudWatch logs and Glue resources.
+
+              Name: DataEngGlueCWS3CuratedZoneRole
+
+              'Create role'
+
+
+
+- Configuring a Denormalization Transform Using AWS Glue Studio
+
+    - Now, we can create a Spark job to denormalize the film data we migrated from our MySQL database.
+        We want to denormalize it for future transforms.
+
+
+    - Ultimately, we want to be able to analyze various data points about our new streaming library of
+        classic movies.  One of the data points we want to understand is which categories of movies are
+        most popular, but we need to query 3 different tables in our source dataset:
+
+        1. film
+        2. film_category
+        3. category
+
+
+    - When analyzing the incoming streaming data about viewers streaming our movies, we don't want to
+        have to do joins on each of the above tables to determine the category of movie we streamed.
+
+
+    - To build the denormalization job using AWS Glue Studio:
+
+        > Services > Glue
+          > AWS Glue Studio
+            > Jobs
+              > Create
+
+                Source: S3
+                Data Catalog Table selected: sakila Database
+                Table: film_category
+
+                - Click on the 'Node properties' tab in the transform designer and set 
+                    Name: S3 - FilmCategory.
+
+
+    - Now repeat those steps for the 'film' table.
+
+
+    - In the 'Designer' window, click on the 'Action' dropdown and select the 'Join' transform.
+        The 'Join' transform requires 2 parent nodes.  Select the 2 nodes we already created.
+
+      Resolve the conflict of both tables having the same column name by clicking 'Resolve It' to have
+        Glue Studio automatically add a new transform that renames the column.
+
+      Select LEFT JOIN as the join type since we want every film included in the results, whether we
+        have a category or not.
+
+      Now, click 'Add Condition', and specify the join condition, film_id = film_id.
+
+
+    - Provide a name for the temporary table created as a result of the join.  On the 'Node properties'
+        tab, change the name to 'Join - Film-Category_ID'.
+
+
+    - We don't need all the data in our temporary table, so we can now use the Glue 'ApplyMapping'
+        transformation to drop the columns we don't need.  Click 'Action' > 'DropFields'.
+
+      We can drop these columns, since we don't need them any more.
+
+        rental_duration
+        rental_rate
+        replacement_cost
+        last_update
+        (right) film_id
+        (right) last_update
+
+
+    - We can add a transform to join the new table with our 'Category' table.  Create a new Source table,
+        with the Category table, and call it 'S3 – Category'.
+
+      Then create a new Join table, called 'Join – Film-Category'.  Select left join, and join on
+        category_id = category_id.  Resolve the naming conflict automatically.
+
+
+    - Now, we'll add one last action to drop these columns from the new table:
+
+       last_update
+       (right) category_id
+
+      Also, for the 'Source key' value of 'name', change 'Target Key' to be 'category_name', since this
+        is more descriptive.
+
+
+
+- Finalizing the Denormalization Transform Job to Write to S3
+
+    - Add a target by clicking the Target drop-down, and select S3.
+
+        Format: Parquet
+        Compression Type: Snappy
+
+        Browse S3: S3 Target Location:
+          Bucket: dataeng-curated-zone-cah
+          Prefix: /filmdb/film_category/
+
+        Select 'Create a table in the Data Catalog, and on subsequent runs, update the schema and add new 
+          partitions'.
+
+        Database: curatedzonedb
+        Table name: film_category
+
+        * Note that Spark requires lowercase table and column names.  Also, the underscore is the only
+            special character supported by Athena.
+
+        * Also note that we won't bother adding a partition key, since our sample dataset is only 1000
+            records.
+
+
+    - For the job name, use 'Film Category Denormalization'.
+
+        IAM role: DataEngGlueCWS3CuratedZoneRole
+        Requested number of workers: 2
+        Job bookmark: Disable
+        Number of retries: 0
+
+        'Save'
+        'Run'
+
+
+    - Now, we can click on 'Runs' to verify that the job completed.  Then, navigate to S3, and verify
+        the files were created.  Finally, navigate to the Glue Console to confirm the new table was
+        created in 'curatedzonedb'.
+
+
+
+- Creating a Transform Job to Join Streaming and Film Data Using AWS Glue Studio
+
+    - Now, we'll create another transform, this time to join the table containing all streams of our movies
+        with the denormalized data about our film catalog.
+
+        > Services > Glue
+          > Create and manage jobs
+            > Blank graph > Create
+
+            Source: S3
+            Data Catalog table: curatedzonedb
+
+            Table: film_category
+
+            Node properties:
+              Name: S3 – Film_Category
+
+
+    - Now, repeat these steps, adding another S3 source for the 'streaming' table from the 'streamingdb'
+        database.  Set the name to 'S3 - Streaming'.
+
+
+    - Now, create an Action to transform the 'S3 - Streaming' data source.  Rename the 'film_id' key to
+        'film_id_streaming'.
+
+
+    - Next, create a Join transform, and select Join type = left join.
+
+        Join Condition:
+          film_id_streaming       # Left-hand table
+          film_id                 # Right-hand table
+
+
+          ...
+
+
+    - Set the name of the job to 'Streaming Data Film Enrichment'.
+
+        IAM Role: DataEngGlueCWS3CuratedZoneRole
+        Number of workers: 2
+        Job bookmark: Disable
+        Number of retries: 0
+
+        'Save'
+        'Run'
+
+
+    - When the job completes, navigate to S3 and ensure the files were created.  Also, navigate to the
+        Glue Console and confirm the new table was created in 'curatedzonedb'.
