@@ -1,0 +1,427 @@
+-----------------------------------------------------------------------
+| CHAPTER 7 - TRANSFORMING DATA TO OPTIMIZE FOR ANALYTICS             |
+-----------------------------------------------------------------------
+
+- Transforming Data
+
+    - We transform data to optimize for analytics and create value for an organization.  Some transformations
+        can be generically applied to a dataset (ie convert raw data to Parquet), while some use
+        business logic and vary according to data and business requirements.
+
+
+
+- Types of Transformation Tools
+
+    - Apache Spark
+
+        - Spark is an in-memory engine for working with large datasets, providing a mechanism to split a
+            dataset among multiple nodes in a cluster for efficient processing.
+
+        - Data can either be processed in batches or in near-real-time using Spark Streaming.
+
+
+        - Within AWS, you can run Spark with multiple AWS services:
+            
+            - AWS Glue for serverless Spark
+            - Amazon EMR for a managed service
+            - AWS container services (ECS or EKS) to run a Spark engine in a containerized environment
+            - Use a managed service from an AWS partner such as Databricks
+
+
+    - Hadoop and MapReduce
+
+        - Hadoop is a framework for working with large datasets on a cluster of machines.  Before Spark,
+            tools like Hive and MapReduce were the most popular way to transform and process large
+            datasets.
+
+        - Apache Hive provides a SQL-like interface for working with large datasets, while MapReduce 
+            provides a code-based approach to processing large datasets.
+
+        - For use cases with massive datasets that cannot be economically processed in memory, Hadoop
+            MapReduce may be better suited.  However, for many use cases, Spark provides significant
+            performance benefits.
+
+        - HDFS is still commonly used as the ingest and target storage for Spark processing jobs.
+
+        - Within AWS, you can run a number of Hadoop tools with the EMR service, including Hive, HBase,
+            Yarn, Tez, Pig, and many others.
+
+
+    - SQL
+
+        - SQL is a common method for data transformation, if you don't need the versatility of a code-based
+            approach.  
+
+        - While we focus mostly on data lakes as the target for our data in this book, there are times
+            where the target of our transformations may be a DW such as Redshift or Snowflake.  In those
+            cases, the data may be loaded into the warehouse, and the transformations then performed in 
+            SQL.
+
+
+    - GUI-Based Tools
+
+        - There are a number of cloud and commercial products that are designed to provide a drag-and-drop
+            style approach to creating complex transformation pipelines.  These tools tend not to be
+            performant or versatile, but they require minimal coding skills.
+
+        - Within AWS, the Glue Databrew service is designed as a visual data preparation tool.  A user
+            can select from a library of 250 common transformations, without needing to write any code.
+
+        - AWS Glue Studio is another service that provides a visual approach to ETL design, developing
+            Spark transformations.  It allows you to create complex ETL jobs that join and transform
+            multiple datasets, then review the generated code.
+
+        - Outside of AWS, there are also many commercial products that provide a visual approach to ETL
+            design.  Popular products include Informatica, Matillion, Stitch, Talend, Panolpy, Fivetran,
+            and many others.
+
+
+
+- Data Preparation Transformations
+
+    - Protecting PII Data
+
+        - Often, datasets we ingest my contain PII, and there may be governance restrictions on which
+            PII data can be stored in the data lake.  We need a process to protect PII as soon as possible
+            after it is ingested.
+
+        - This is often the very first transformation that is performed.  In many cases, it is done in a
+            separate zone of the data lake.  This zone will have strict access controls.  A best practice
+            would be to have the anonymizing process run in a totally separate AWS account.  After the
+            process is complete, the files can be moved into the raw zone.
+
+        - There are open source libraries to complete the anonymization process using Spark, which could
+            be run using Glue or EMR.  It could be done in Athena if all you need is a SHA-256 hash.
+
+
+    - Optimizing the File Format
+
+        - There are a number of file formats optimized for data analytics.  Apache Parquet is the most
+            popular.  Parquet files are columnar.  They also contain metadata about the data they store
+            (including schema information, statistics like the minimum and maximum of each column, and
+            the number of rows in the file).
+
+        - Parquet files are also optimized for compression.  A 1 TB dataset in CSV format can be stored
+            in about 130 GB in a Parquet format.  Parquet supports multiple compression algorithms, but
+            Snappy is the most widely used.
+
+        - Since services like Athena are billed based on the amount of compressed data scanned, these
+            optimizations result in significant savings in storage and computation.
+
+        - If you have a lot of Parquet files, some queries may be able to just look at the metadata
+            instead of scanning the entire files.  For example, if you just need to count the rows in a
+            table, you can just look at the metadata, and Parquet won't charge you for the query.
+
+
+    - Optimizing with Data Partitioning
+
+        - Partitioning is another common optimization.  It relates to how the data files are organized
+            in the storage system for a data lake.
+
+        - 'Hive partitioning' splits the data from a table to be grouped together in different folders,
+            based on one or more columns in the dataset.  You can partition the data on any column, but
+            partitioning based on data is the most common.
+
+
+        - For example, if you had sales data for the last 4 years, you could group it together by year:
+
+            datalake_bucket/year=2021/file1.parquet
+            datalake_bucket/year=2020/file1.parquet
+            datalake_bucket/year=2019/file1.parquet
+            datalake_bucket/year=2018/file1.parquet
+
+          Then, when you run a SQL query with 'WHERE Year = 2018', the analytics engine only needs to 
+            open up a single file in the folder.
+
+
+        - Your partitioning strategy requires a good understanding of how the data will be used.  If you
+            partition by year, but most queries span multiple years, your partitioning strategy will not
+            be effective.  Also, there is some overhead to scanning across multiple partitions in a query.
+
+
+        - You can also partition across multiple columns.  For example, if you regularly process data at
+            the day level, you could implement this strategy:
+
+            datalake_bucket/year=2021/month=6/day=1/file1.parquet
+
+
+        - However, you want to ensure you don't end up with a large amount of small files.  The optimal
+            size of Parquet files in a data lake is 128 MB - 1 GB.  The Parquet file format can be split,
+            so multiple nodes in a cluster can process a file in parallel.
+
+            (Note files compressed using gzip are not splittable)
+
+
+    - Data Cleansing
+
+        - Data cleansing is often one of the first tasks to be performed after ingesting data.  It helps
+            ensure the data is valid, accurate, consistent, complete, and uniform.
+
+
+        - Source datasets may be missing values in some rows, have duplicate records, have inconsistent
+            column names, use different formats, etc.  The data cleansing process works to resolve 
+            these issues in raw data to better prepare the data for analytics.
+
+          Some sources may be nearly completely clean on ingestion (ie relational dbs), while others may
+            need a lot of cleansing (data from web forms, manually entered data, IoT data from sensors).
+
+
+        - Common cleansing transformations include:
+
+            - Ensuring consistent column names
+            - Changing column data types
+            - Ensuring a standard column format
+            - Removing duplicate records
+            - Providing missing values
+
+
+
+- Business Use Case Transforms
+
+    - In a data lake environment, you typically ingest data from many different source systems into a raw
+        (aka landing) zone.  Then, you perform the data preparation transformations and apply cleansing
+        rules to the data, and store it in the clean zone.
+
+      At this point, you may also apply updates to the data set with CDC-type data and create the latest
+        view of the data.
+
+
+    - Once that is done, you are going to apply transformations that deliver value to the business for a
+        specific use case.  After all the whole point of the data lake is to bring varied data sources
+        from across the business to a central location, to enable new insights to be drawn from across
+        those datasets.
+
+
+    - Data Denormalization
+
+        - Some data systems are highly normalized (ie relational dbs), and each table is linked to other
+            tables through foreign keys.  Structuring tables this way has write-performance advantages
+            for OLTP systems, and helps ensure referential integrity of the database.
+
+          Normalized tables also consume less disk space, since data is not repeated across multiple tables.
+
+
+        - When it comes to running OLAP queries, having to join data across multiple tables incurs a
+            performance hit, so data is often denormalized for analytics purposes.  An analytics project
+            may have tens or even hundreds of denormalization transforms.
+
+
+        - These types of transformations can be done with Spark, GUI-based tools, or SQL.  AWS Glue Studio
+            can be used to design them using a visual interface.
+
+
+    - Enriching Data
+
+        - Another common transformation is to join tables for the purpose of enriching the original dataset.
+            Data that is owned by the organization can be made even more valuable by combining data the
+            organization owns with data from third parties, or with data from other parts of the business.
+
+        
+        - For example, a company that wants to market credit cards to customers may purchase a database of
+            consumer credit scores to match against their customer database.  
+
+          Or a company that knows its sales are impacted by weather conditions may purchase historical and 
+            weather forecast data to help them analyze and forecast sales information.
+
+
+        - AWS provides a data marketplace with the AWS Data Exchange, which has datasets that are free or
+            subscription-based.  It's easy to load the data directly into your S3 landing zone.
+
+
+    - Pre-aggregating Data
+
+        - One of the benefits of data lakes is that they provide a low-cost environment for storing large
+            datasets, without needing to preprocess the data or determine the data schema up front.  Then
+            if later on, you decide you want to ask new questions of the data, you still have all the
+            raw data.
+
+          
+        - However, the business may want to ask questions regularly of the data, and the answers may not
+            be easily obtained through ad-hoc SQL queries.  As a result, you may create transform jobs
+            that run on a scheduled basis to perform the heavy computation that may be required to gain
+            the required information from the data.
+
+
+        - For example, you may create a transform job hat creates a denormalized version of your sales data 
+            that includes, among others, columns for the store number, city, and state for each transaction. 
+
+          You may then have a pre-aggregation transform that runs daily to read this denormalized sales data 
+            (which may contain tens of millions of rows per day and tens or hundreds of columns) and compute 
+            sales, by category, at the store, city, and state level, and write these out to new tables. 
+
+
+        - You may have hundreds of store managers that need access to store-level data at the category level 
+            via a BI visualization tool, but because we have pre-aggregated the data into new tables, the 
+            computation does not need to be run every time a report is run.
+
+
+    - Extracting Metadata from Unstructured Data
+
+        - A data lake may also contain unstructured data, such as audio or image files.  While these files
+            cannot be queried directly with traditional analytic tools, we can create a pipeline that uses
+            ML and AI services to extract metadata from these unstructured files.
+
+
+        - For example, a company that employs real estate agents may capture images of all houses for sale.
+            One of their DEs could create a pipeline that uses an image service such as Amazon Rekognition
+            to automatically identify the type of room.  This captured metadata could then be used in 
+            traditional analytics reporting.
+
+
+        - Another example is a company that stores audio recordings of customer service phone calls.  A
+            pipeline could be built that uses an AI tool such as Amazon Transcribe to create transcripts of
+            the calls, and then a tool such as Amazon Comprehend could perform sentiment analysis on the
+            transcript.
+
+          This would create an output that determines whether sentiment was positive, negative, or neutral
+            for each call.  This data could be joined with other data sources to develop a target list of
+            customers to send specific marketing communications.
+
+
+
+- Working with CDC Data
+
+    - One of the most challenging aspects of working within a data lake environment is the processing of
+        updates to existing data, such as with CDC.
+
+
+    - For example, we complete an initial load of a relational database into the data lake using Amazon 
+        DMS.  Then DMS can read the database transaction logs and write all future database updates to
+        S3.
+
+      
+    - For each row written to S3, the first column of the CDC file would contain one of the following
+        characters:
+
+        I    # New row was inserted
+        U    # Existing row was updated
+        D    # Record was deleted
+
+
+    - Traditionally, though, it has not been possible to execute updates or deletes to individual records
+        within the data lake.  S3 is an object storage service, so you can delete and replace a file but
+        you cannot edit a file in place.
+
+
+    - If you just append new records to the existing data, you will end up with multiple copies of the
+        same record, with each record representing the state at a specific point in time.
+
+      This can be useful to have the history of all changes, but we want our end users to be able to work
+        with a dataset that contains the current state of each data record.  There are 2 common approaches
+        to this, data upserts and a transactional data lake.
+
+
+
+- Traditional Approaches - Data Upserts and SQL Views
+
+    - One of the traditional approaches to dealing with CDC data is to run a transform job, on a schedule,
+        that effectively merges the new CDC data with the existing dataset, keeping only the latest
+        records.  This is known as performing an 'upsert'.
+
+
+    - One way to do this is to create a transform in Spark that reads in existing data to one DataFrame,
+        reads the new data into another DataFrame, then merges them based on custom logic.  The transform
+        can then overwrite the existing data or write data to a new date-based partition, creating a new
+        snapshot of the source system.
+
+      A certain number of snapshots can be kept, enabling consumers to query data from different points in
+        time.
+
+
+    - There are a few challenges with this approach:
+
+        - These transforms can end up being complex, and it is challenging to create a transform that is
+            generic across all source datasets.
+
+        - There can be disruptions for consumers that are trying to read from the dataset while the update
+            is running.
+
+        - As the dataset grows, the amount of time and resources needed to read in the full dataset becomes
+            a major challenge.
+
+
+    - In order to create a solution that can be used across multiple datasets, one common approach is to 
+        create a configuration table that captures details about source tables.  The config table contains
+        information about which column should be considered the PK and a list of columns on which to
+        partition the output.
+
+      When the transform job runs, it reads the config table in order to integrate that table's specific
+        settings with the logic in the transform job.
+
+
+    - AWS has a blog post that provides a solution for capturing CDC data, then runs a Glue job to apply
+        the latest updates.  A DynamoDB table is used to store config data on the source tables.  There
+        is a CloudFormation template with the components needed.
+
+
+    - An alternative approach is to use 'Athena Views' to create a virtualized table that shows the latest
+        state of the data.  The view definition will join the source table with the new CDC data and
+        return a result that reflects the latest state of the data.
+
+      This always gives the user the most current state of the data.  However, performance will degrade over 
+        time as the CDC table grows, so we need a daily job to consolidate the new CDC data into the
+        existing dataset.  Creating and maintaining these views can be fairly complex.
+
+
+
+- Modern Approaches - The Transactional Data Lake
+
+    - Over the past few years, the concept of a 'transactional data lake' has become popular.  This refers
+        to a data lake that has properties previously only available in a traditional database, like
+        updates and deletes.
+
+      In addition, many of these new solutions also provide support for schema evolution and time travel.
+        These new formats bring ACID semantics to the data lake.
+
+
+    - Note that this does not mean that data lakes can replace traditional OLTP DBs.  Data lakes are still
+        intended as analytical platforms.  But, these new solutions do simplify the ability to apply
+        changes and delete records.
+
+
+    - AWS Lake Formation Governed Tables
+
+        - Governed tables is new functionality for AWS Lake Formation.  This new S3 table type has been
+            designed to support ACID transactions within an S3-based data lake environment.
+
+        - When a table is created and configured as a governed table, Lake Formation handles the
+            complexity of allowing multiple users to simultaneously and reliably insert, update, delete,
+            and modify records across these tables.
+
+        - Lake Formation also works behind the scenes to automatically compact and optimize the files
+            behind the table on a regular basis.
+
+
+    - Apache Hudi
+
+        - Apache Hudi started out as a project at Uber, was donated to ASF, and became a top-level project
+            in 2020.  Today, it is a popular option for building out transactional data lakes to support
+            the ability to efficiently upsert new/changed data into a data lake.
+
+        - Hudi also allows you to easily query tables and get the latest updates returned.
+
+        - AWS supports running Hudi within the EMR service.
+
+
+    - Apache Iceberg
+
+        - Apache Iceberg was created by engineers at Netflix and Apple, and is designed as an open-table
+            format for very large datasets.  It was donated to ASF and became a top-level project in
+            2020.
+
+        - Iceberg supports schema evolution, time travel, atomic table changes, and support for multiple
+            simultaneous writers.
+
+        - In 2021, a new start up call Tabular was formed by the creators of Iceberg to build a cloud-native
+            data platform powered by Iceberg.
+
+
+    - Databricks Delta Lake
+
+        - Databricks, a company founded by the creators of Spark, have created their own approach to 
+            providing a transactional data lake, Delta Lake.
+
+        - Delta Lake is an open-format storage layer for streaming and batch operations that provides
+            ACID transactions for inserts, updates and deletes.  It also supports time travel.
+
+        - Delta Lake is available both open source and as a fully supported commercial version.

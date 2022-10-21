@@ -675,7 +675,7 @@
 
               Name: dataeng-streaming-crawler
 
-              Add a Data Store: Include Path: s3://dataeng-landing-zone-<initials>/streaming
+              Add a Data Store: Include Path: s3://dataeng-landing-zone-cah/streaming
 
               Choose IAM Role: Create New IAM Role
                 Suffix: glue-crawler-streaming-data-role
@@ -698,4 +698,10 @@
 
 - Querying the Data with Amazon Athena
 
-    - 
+    - Now that we have ingested the streaming data and added it to the AWS Glue data catalog with the
+        Glue Crawler, we can query the data using Amazon Athena.
+
+        > Services > Athena
+
+          Database: streaming-db
+          Query: select * from streaming limit 20;
