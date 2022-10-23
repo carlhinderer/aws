@@ -655,6 +655,7 @@
             Source: S3
             Data Catalog table: curatedzonedb
 
+            Type: Data catalog table
             Table: film_category
 
             Node properties:
@@ -676,7 +677,18 @@
           film_id                 # Right-hand table
 
 
-          ...
+    - Now, create a target for the join:
+
+        Format: Parquet
+        Compression type: Snappy
+
+        S3 Target Location: dataeng-curatedzone-cah
+        Add a prefix: /streaming/streaming-films/
+
+        Create a table in the Data Catalog, and on subsequent runs, update the schema and add new partitions.
+
+        Database: curatedzonedb
+        Table name: streaming_films
 
 
     - Set the name of the job to 'Streaming Data Film Enrichment'.
