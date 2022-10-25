@@ -508,7 +508,7 @@
 
         1. Create a new data lake user and configure their permissions using IAM permissions
         2. Update a Glue database and table to use Lake Formation permissions
-        3. Grand Lake Formation permissions to our data lake user
+        3. Grant Lake Formation permissions to our data lake user
 
 
 

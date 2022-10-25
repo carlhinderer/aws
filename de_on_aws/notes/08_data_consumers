@@ -1,0 +1,310 @@
+-----------------------------------------------------------------------
+| CHAPTER 8 - IDENTIFYING AND ENABLING DATA CONSUMERS                 |
+-----------------------------------------------------------------------
+
+- The Impact of Data Democratizaiton
+
+    - At a high level, business drivers have not changed over the past few decades.  Organizations are
+        still interested in:
+
+        - Understanding market trends
+        - Understanding customer behavior
+        - Increasing customer retention
+        - Improving product quality
+        - Improving speed to market
+
+
+    - However, the analytics landscape, and teams and individual roles that deliver business insights, and
+        the tools that are used have evolved.  Data democratization - the accessibility of data for a growing
+        audience of users in a timely and cost-effective manner - has become a standard expectation.
+
+
+    - As datasets increase in volume and velocity, their gravity will attract more applications and
+        consumers.  This is known as 'data gravity', the idea that data has mass.  As datasets increase in
+        size, they attract more users and become more difficult to move.
+
+      To not be inhibited by a dataset's mass, a modern data pipeline should be based on a storage solution
+        that allows user to interact with data in place.
+
+
+
+- A Growing Variety of Data Consumers
+
+    - In modern organizations, we can expect to find a wide variety of data consumers, from traditional
+        business users and data analysts, to data scientists, machine-to-machine applications, and new types
+        of business users.
+
+
+    - Many analysts want to do more than just run SQL queries and scheduled reports.  They want the ability
+        to do ad hoc analysis and exploration.  And, they want to join structured data with semi-structured
+        or unstructured data.  For example, they may want to evaluate sales trends concerning social media.
+
+
+    - Business users now expect dashboards to be refreshed with near-real-time data.  They want more than
+        just sales or ERP data.  They want social media dashboards.  In manufacturing, they want data
+        collected from machines, devices, and vehicles.
+
+
+
+- Meeting the Needs of Business Users with Data Visualizations
+
+    - With AWS, the primary tool that's used by business users is Amazon QuickSight, a cloud-based BI
+        application.  QuickSight enables the creation of easy-to-access visualizations, but also provides 
+        functionality for advanced users to dig deeper into the data while providing strong security and 
+        governance controls.
+
+
+    - Many different types and styles of charts are supported.  A dashboard can display data from multiple
+        data sources, and users can filter, sort, and even drill down into data.
+
+      Users can receive dashboards via regular emails or via the QuickSight portal or QuickSight mobile app.
+
+
+    - QuickSight can use data from many different sources, including directly from a S3-based data lake,
+        databases (ie Redshift, MySQL, Oracle), SaaS applications, and many other sources.
+
+      DEs many need to configure access to existing data sources, and may also need to create new datasets
+        in a data lake or DW to that users don't have to combine and transform the data themselves.
+
+
+
+- Meeting the Needs of Data Analysts with Structured Reporting
+
+    - Data analysts' full time job is analyzing datasets and drawing out insights for the business.  Their
+        job descriptions often include the following:
+
+        - Cleansing data and ensuring data quality when working with ad hoc sources
+
+        - Developing a good understanding of their part of the business
+
+        - Interpreting data to draw out insights for the organization, and presenting it to leaders
+
+        - Creating visualizations using powerful BI software that other business users can use
+
+        - Doing ad hoc analysis of data using SQL
+
+
+    - A data analyst is often tasked with doing complex data analysis to answer specific business questions.
+        For example:
+
+        - Identify which products are most popular by age or socio-economic demographics.
+
+        - What percentage of customers have browsed the company's ecommerce store more than 5 times, for
+            more than 10 minutes at a time, in the last 2 weeks, but have not purchased anything?
+
+
+
+- AWS Tools for Data Analysts
+
+    - Amazon Athena
+
+        - Athena is a service that enables users to run complex SQL queries against a variety of data
+            sources.  
+
+        - Using Athena, an analyst can run queries that join data from across tables in different data 
+            sources.  For example, a single query can join data from S3 and Redshift.
+
+
+    - Amazon Glue DataBrew
+
+        - Data analysts often need to use new sources of data to answer new questions and may need to
+            perform data transformations on these datasets.  Part of this process may involve creating
+            ad hoc transformation pipelines to ingest, cleanse, join, and transform data.
+
+        - AWS Glue DataBrew is very popular with data analysts.  Transformations and joins can be done
+            using a visual interface, without needing to write any code.
+
+        - DataBrew can connect to a variety of data sources, including Snowflake, JDBC, Redshift, S3,
+            Glue/Lakeformation, and others.  It includes over 250 built-in transforms.
+
+
+    - Running Python or R in AWS
+
+        - Python code can be run using AWS Lambda, AWS Glue Python Shell, or EC2.
+
+        - RStudio, a popular IDE for R, can be run on EC2 instances.  RStudio can also be run on EMR for
+            very large datasets.
+
+
+
+- Meeting the Needs of Data Scientists and ML Models
+
+    - Data scientists use advanced mathematical concepts to develop ML models that can be used in various
+        ways, including the following:
+
+        - Identify non-obvious patterns in data
+        - Predicting future outcomes based on historical data
+        - Extracting metadata from unstructured data
+
+
+    - Amazon SageMaker is a suite of tools that helps data scientists and developers with the many different
+        steps required to build, train, and deploy ML models.
+
+
+    - SageMaker Ground Truth
+
+        - Most ML models rely on training the model using labeled data.  SageMaker Ground Truth is a fully
+            managed service for labeling datasets.
+
+        - Ground Truth uses it's own ML model to automatically label datasets.  If it comes across data it
+            cannot confidentally label, it can route the data to humans, either a pre-selected team of
+            humans or Mechanical Turk.
+
+        - Example: take 10000 pictures of dogs and cats and lable them according to which one it is.
+
+
+    - SageMaker Data Wrangler
+
+        - Data scientists spend up to 70% of their time cleaning and preparing raw data to be used to train
+            ML models.  SageMaker Data Wrangler was introduced in 2020 to simplify and speed up this
+            process.
+
+        - Data Wrangler supports directly ingesting data from sources, such as S3, Redshift, Athena, and
+            Snowflake.  Once imported, the SageMaker Studio interface can be used to transform the data,
+            selecting from a library of 300 built-in transformations.
+
+        - Data Wrangler also supports writing custom transformations using PySpark or pandas.
+
+        - Once a Data Wrangler flow has been created, a user can export it into a Jupyter notebook or
+            export the Python code to run it elsewhere.
+
+
+    - SageMaker Clarify
+
+        - SageMaker Clarify is a tool for examining raw data to identify potential bias in the data.  It
+            is integrated with Data Wrangler, allowing users to evaluate their datasets for bias as part
+            of the data preparation process.
+
+        - Example: detect if a dataset on credit ratings is all middle-aged people, which may make the 
+            model less accurate when making predictions for older or younger people.
+
+
+
+- Creating Data Transformations with AWS Glue DataBrew
+
+    - In Chapter 7, we used Glue Data Studio.  In this chapter, we'll use Glue DataBrew.  Both provide a
+        visual interface for defining transformations, and in many cases, each tool could be used to
+        achieve the same outcome.
+
+
+    - The difference is that Glue Data Studio generates Spark code that can be further refined in a code
+        editor and run in another environment.  Glue DataBrew does not generate code, and jobs can only
+        be run in DataBrew.
+
+
+    - Glue Data Studio is generally aimed at DEs, while Glue DataBrew is generally aimed at Data Analysts.
+
+
+
+- Configuring New Datasets for AWS Glue DataBrew
+
+    - In this task, we'll be playing the role of a Data Analyst that has been tasked with creating a mailing
+        list that can be used to send marketing material to the customers of our now-closed video store,
+        letting them know our catalog is now available for streaming.
+
+
+    - To start with, we'll connect to 2 existing S3-based data sources: the customer and address tables from
+        the MySQL database we ingested.
+
+      Navigate to:
+
+        > Services > Glue DataBrew
+          > Datasets
+            > Connect new dataset
+
+              Name: customer-dataset
+
+              Connect to new dataset: Data Catalog S3 Tables
+                Database: sakila
+                Table: customer
+
+
+    - Now repeat these steps for the address table.
+
+
+
+- Creating a New Glue DataBrew Project
+
+    - Now, we'll create a Glue DataBrew project where we can join our customer and address tables, and
+        then clean the dataset.
+
+      Navigate to:
+
+        > Projects
+          > Create Project
+
+          Project name: customer-mailing-list
+          Recipe details: Create new recipe
+          Dataset: customer-dataset
+
+          Permissions: Create new IAM Role
+            New IAM Role Suffix: dataengbook
+
+            'Create Project'
+
+
+
+- Building Your Glue DataBrew Recipe
+
+    - Now, we'll build out a recipe for our transformation.  We want to join our customer data with the
+        address table, and then make the following changes:
+
+        1. Change the 'first_name' and 'last_name' to capital case
+        2. Change the email addresses so they're all in lowercase
+
+
+    - Click on 'Add Step' and select 'Join Multiple Datasets'.
+
+        Select Dataset: address-dataset
+        Select join type: Left Join
+
+        Join Keys:
+          Table A: address_id
+          Table B: address_id
+
+
+    - Under 'Column list', deselect all the columns, then select only the following columns:
+
+        A. Table A, customer_id
+        B. Table A, first_name
+        C. Table A, last_name
+        D. Table A, email
+        E. Table B, address
+        F. Table B, district
+        G. Table B, postal_code
+
+
+    - Click 'Finish'.  Now, we'll have the list of customers and their addresses.
+
+
+    - Now, we'll change the first and last names to capital case.  Click on 'Add Step', then select
+        'FORMAT / Change to Capital Case'.
+
+        Source column: first_name
+
+
+    - Repeat these steps for the last name.  Then, repeat them for email, but use 'FORMAT / Change to
+        Lowercase'.
+
+
+
+- Creating a Glue DataBrew Job
+
+    - Finally, we'll run our recipe in a job and write the results to a file in S3.
+
+        > Jobs
+          > Create Job
+
+            Job Name: mailing-list-job
+            Job Input: Project: mailing-list-project
+            Job Output Settings: defaults (S3, CSV, comma delimiter, no compression)
+            S3 Location: s3://dataeng-clean-zone-cah/mailing-list
+
+            Permissions:
+              Create new IAM Role
+                Suffix: mailing-list-job
+
+            'Create and Run Job'
+
+
+    - Open the destination path, output it to CSV, and verify the results.
