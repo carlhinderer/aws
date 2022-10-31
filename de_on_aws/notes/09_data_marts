@@ -1,0 +1,1054 @@
+-----------------------------------------------------------------------
+| CHAPTER 9 - LOADING DATA INTO A DATA MART                           |
+-----------------------------------------------------------------------
+
+- Extending Analytics with Data Analytics and Data Marts
+
+    - While the data lake enables a significant amount of analytics to happen inside it, there are several
+        use cases where an engineer may need to load data into a DW or data mart.
+
+
+    - A data lake is a single source of truth across multiple LOBs, while a data mart contains a subset of
+        data of interest to a particular group of users.  A data mart could be a relational DB, a DW, or
+        a different kind of data store.
+
+
+    - Data marts serve 2 primary purposes:
+
+        1. They provide a DB with a subset of data in the data lake, optimized for specific types of queries.
+
+        2. They provide a higher-performing, lower-latency query engine, which is often required for 
+             specific analytic use cases (such as powering BI applications).
+
+
+    - Tools such as Athena allow us to run queries directly on the data lake.  However, the performance of
+        these queries is generally lower than the performance you get running queries against data on a
+        high-performance disk local to the compute engine.
+
+
+
+- Cold Data
+
+    - 'Cold data' is data that is not frequently accessed, but is mandatory to store for long periods for
+        compliance and governance reasons.  Or it can be historical data that is stored to enable future
+        R&D (ie for training ML models).
+
+
+    - One example is logs from a banking website.  Unless there is a breach, there is a good chance that
+        after awhile, we may not need to query this data again.
+
+      Another example is detailed data from a range of sensors in a factory.  This data may not be actively
+        queried after 30 days, but we want to keep this data available in case there is a future ML project
+        where we need rich, historical data.
+
+
+    - In AWS, cold data can be stored in S3, which has different classes of storage based on your
+        requirements.  S3 life cycle rules can move data into these classes automatically after a certain
+        time:
+
+        - S3 Glacier
+            - Long term storage for data that may be required a few times a year
+            - Immediate access is not required
+            - Data can be retrieved from minutes to hours
+            - Cannot be directly queried with Athena or Glue jobs, must be retrieved first
+
+        - S3 Glacier Deep Archive
+            - Lowest-cost storage for long-term data retention
+            - Data that may only be retrieved once or twice a year
+            - Can be retrieved within 12 hours
+
+
+
+- Warm Data
+
+    - 'Warm data' is accessed relatively often, but does not require extremely low latency for retrieval.
+        This is data that needs to be queried on demand, such as data used in daily ETL jobs or data used
+        for ad hoc querying and data discovery.
+
+
+    - An example is the data that is ingested in our raw data lake zone daily, such as data from a
+        transactional DB system.  This data will be processed by our ETL jobs, put into the transformed
+        zone, and later put into the curated zone.  All these zones would likely fall into the category
+        of warm data.
+
+
+    - In AWS, warm data is often stored in S3.  The following storage classes are often used:
+
+        - S3 Standard
+            - Ideal for ETL jobs and ad hoc SQL queries with Athena or Redshift Spectrum
+            - Cost is based on amount of data stored
+            - No per-GB retrieval cost (although there is a cost for API GET calls)
+
+        - S3 Standard Infrequent-Access
+            - Same immediate access and fast retrieval as S3 Standard
+            - Storage cost is lower, but there is a per-GB retrieval cost
+
+        - S3 Intelligent-Tiering
+            - Useful when you are unsure of data access patterns
+            - Data is automatically moved from Standard to Intelligent-Tiering if not accessed for 30 days
+            - Optionally, can enable archive tiering as well, to move to Glacier then Glacier Deep Archive
+
+
+
+- Hot Data
+
+    - 'Hot data' is data that is highly critical for day-to-day analytics enablement in an organization.
+        This is data that is likely accessed multiple times per day, and low-latency, high-performance
+        access to the data is critical.
+
+
+    - An example of this kind of data is data used by a BI application such as QuickSight or Tableau.  This
+        could be data used to show manufacturing and sales of products at different sites, for example.
+
+      This is often the kind of data used by end user data consumers in the organization, as well as
+        business analysts that need to run complex queries.  The data may also be refreshing dashboards
+        that provide critical business metrics and KPIs used by executives.
+
+
+    - In AWS, several services can be used to provide high-performance, low-latency access to data.  These
+        include RDS, DynamoDB, and ElasticSearch.  From an analytics perspective, the most common targets
+        for hot data are:
+
+        - Redshift
+            - Super-fast cloud native DW
+            - High-performance, low-latency
+
+        - QuickSight SPICE
+            - BI tool for creating dashboards
+            - Can read from Redshift or load data directly into QuickSight in-memory DB (SPICE)
+
+
+
+- What Not to Do - Anti-patterns for a DW
+
+    - Use a DW as a Transactional Datastore
+
+        - DWs should not be used for OLTP
+        - Data can be deleted in DWs, but is primarily designed for append-only queries
+        - PKs and FKs are available, used for query optimization, but not enforced by Redshift
+
+
+    - Use a DW as a Data Lake
+
+        - DWs require upfront thought about the schema and table structure
+        - DWs are not designed to store unstructured data
+        - Since DWs have a compute engine, storage is much more expensive
+        - DWs store curated datasets with well-defined schemas
+
+
+    - Using DWs for Real-Time, Record-Level Use Cases
+
+        - DWs are optimized to load data in batches, and are not well-suited to ingesting individual records
+        - Should not be a direct target for IoT data, for instance
+        - If you need to load this kind of data in Redshift, should buffer it in large batches first
+
+
+    - Storing Unstructured Data
+
+        - Some DWs like Redshift can store semi-structured data (ie JSON)
+        - Should not try to store unstructured data like images, videos, other media
+
+
+
+- Redshift Architecture Review and Storage Deep Dive
+
+    - The Redshift architecture uses leader and compute nodes.  Each compute node contains a certain amount
+        of compute power (CPUs and memory), as well as a certain amount of local storage.
+
+
+    - When configuring your Redshift cluster, you can add multiple compute nodes, depending on your
+        compute and storage requirements.  Note that to provide fault tolerance and improved durability,
+        the compute nodes actually have 2-3x the stated storage capacity.
+
+
+    - Every compute node is split into either 2, 4, or 16 slices, depending on the cluster type and size.
+        Each slice is allocated a portion of the node's memory and storage, and works as an independent
+        worker, in parallel with the other slices.
+
+      The slices store different columns of data for large tables, as distributed by the leader node.
+        The data for each column is persisted in 1 MB immutable blocks, and each column can grow
+        independently.
+
+
+    - When a user runs a query against Redshift, the leader node creates a query plan, allocates work for
+        each slice, and then the slices execute the work in parallel.  When each slice completes it's work,
+        it passes the results back to the leader node for final aggregation or sorting and merging.
+
+      However, this means that a query is only as good as it's slowest partition.
+
+
+
+- Data Distribution Across Slices
+
+    - To increase data throughput and query performance, data should be spread evenly across slices to
+        avoid I/O bottlenecks.  Redshift supports multiple distribution styles, including EVEN, KEY, and
+        ALL, or can automatically select the best distribution style.  
+
+      The distribution style that's selected for a specific table determines which slice a row in a 
+        column will be stored on.
+
+
+    - One of the most common operations when performing analytics is the JOIN operation.  We'll consider
+        an example of when we have 2 tables - one is a small dimension table (2-3 million rows) and
+        the other is a very large fact table (hundreds of millions of rows.
+
+        - The small dimension table can easily fit into the storage of a single node.  The large table needs
+            to be spread across multiple nodes.
+
+        - One of the biggest impacts on performance is when data needs to be shuffled (copied) around
+            between nodes.
+
+        - To avoid shuffling, the smaller dimension table can be stored on all the slices of the cluster
+            by specifying an ALL distribution style.
+
+        - For the larger table, data can be equally distributed across all the slices in a round-robin
+            fashion by specifying an EVEN distribution style.  
+
+        - By doing this, every slice will have a full copy of the small dimension table and it can directly
+            join that with the subset of data it holds for the larger fact table, without needing to
+            shuffle the dimension data from other slices.
+
+
+    - While this approach can be ideal for query performance, it does have some overhead with regards to
+        the amount of storage space used and a negative performance on data loads.
+
+      An alternative approach that can be used, especially if both tables are large, is to ensure that the
+        same slices store for the rows of both tables that will need to be joined.
+
+        - A way to achieve this is by using the KEY distribution style, where a hash value of one of the
+            columns will determine which row of the table will be stored on which slice.
+
+        - For example, let's say we have a table that stores details about all the products we sell, and
+            this table contains a 'product_id' column.  Let's say we also have a different table that
+            contains details of all sales, and it also has a 'product_id' column.
+
+        - In our queries, we often need to join these tables on the 'product_id' column.  So we
+            distribute the data from both tables based on the value of the 'product_id' column.
+
+        - Redshift would determine the hash value of, for example, product id 'DLX5992445'.  Then, all the
+            rows, from both tables, with that product_id will be stored on the same slice.
+
+
+    - For grouping and aggregation queries, you also want to reduce data shuffling to save network I/O.
+        This can also be achieved by using the KEY distribution style to keep records with the same key
+        on each slice.
+
+        - In this scenario, you would specify the column used in the GROUP BY clause as the key to 
+            distribute the data on.
+
+        - However, if we queried one of these tables with a WHERE filter on the product_id column, then
+            this distribution would create a bottleneck, as all the data needed to be returned from the
+            query would be on one slice.
+
+        - So, you should avoid specifying a KEY distribution on a column that is commonly used in a WHERE
+            clause.
+
+        - Finally, the column that is used for a KEY distribution should always be one with high
+            cardinality and normal distribution of data to avoid hot partitions and data skew.
+
+
+
+- Redshift Zone Maps and Sorting Data
+
+    - The amount of time it takes a query to return results is also impacted by hardware factors, 
+        especially:
+
+        1. Disk seek = the time it takes for a hard drive to move the read head from one block to another
+                         (so, it does not apply to SSD drives)
+
+        2. Disk access = the latency in reading and writing stored data on disk blocks and transferring
+                           the requested data back to the client
+
+
+    - To reduce data access latency, Redshift stores in-memory metadata about each disk block on the 
+        leader node in what is called 'Zone Maps'.  For example, Zone Maps store the minimum and maximum
+        values for the data of each column that is stored within a specific 1 MB data block.
+
+      Based on these Zone Maps, Redshift know which blocks contain data relevant to a query, so it can
+        skip reading blocks that do not contain data needed for the query.  This optimizes queries by
+        reducing the number of reads.
+
+
+    - Zone Maps are most effective when data on blocks is sorted.  When defining a table, you can 
+        optionally define one or more sort keys, which determine how data is sorted within a block.  
+
+        - When choosing multiple sort keys, you can either have a priority order of keys using a
+            'compound sort key' or give equal priority to each sort key by using an 'interleaved sort key'.
+
+        - The default sort key type is 'compound sort key', and this is recommended for most scenarios.
+
+
+    - Sort keys should be on columns that are frequently used with range filters or columns where you
+        regularly compute aggregations.  While they can significantly improve query performance, they can
+        harm the performance of ingest tasks.  Redshift can help by automatically optimizing a table's
+        sort key.
+
+
+
+- Designing a High-Performance DW
+
+    - When you're designing a high-performing DW, multiple factors need to be considered.  These include
+        items such as cluster type and sizing, compression types, distribution keys, sort keys, data types,
+        and table constraints.
+
+
+    - Tradeoffs to be considered include 'cost vs performance' and 'storage size vs performance'.  Business
+        requirements and the available budget will often drive these decisions.
+
+
+    - The logical schema also plays a big part in optimizing the performance of the DW.  Often, this will
+        be an iterative process, where you start with an initial schema design that you refine over time
+        to optimize the increased performance.
+
+
+
+- Selecting the Optimal Redshift Node Type
+
+    - There are 3 different types of nodes available, each with different combinations of CPU, memory,
+        storage capacity, and storage type.
+
+        1. RA3 Nodes
+             - When used with managed storage, you can decouple compute and storage
+             - Pay per-hour compute fee and separate fee for managed storage you use over the month
+             - Storage is a combination of local SSD storage and data stored in S3
+
+        2. DC2 Nodes
+             - Designed for compute-intensive workloads, features a fixed amount of local SSD storage per node
+             - Compute and storage are coupled
+
+        3. DS2 Nodes
+             - Legacy nodes that offer compute with atached large hard disk drives
+             - Compute and storage are coupled
+
+
+    - AWS recommends that small data warehouses (under 1 TB in size) use DC2 nodes, while larger DWs make
+        use of the RA3 nodes with managed storage.  DS2 nodes are not generally recommended when creating
+        a new Redshift cluster.
+
+
+
+- Selecting the Optimal Table Distribution Style and Sort Key
+
+    - In the early days of Redshift, users had to specifically select the distribution style and sort key
+        they wanted to use for each table.  Later, Amazon introduced new functionality that enabled 
+        Redshift to use advanced AI methods to monitor queries being run on the cluster, and 
+        automatically apply the optimal distribution style and/or sort key.
+
+
+    - If you create a new table and do not specify a specific distribution style or sort key, Redshift
+        sets both these settings to AUTO.  Smaller tables will initially be set to have an ALL distribution
+        style, while larger tables will have an EVEN distribution style.
+
+
+    - If a table starts small but grows over time, Redshift automatically adjusts the distribution style
+        to EVEN.  Over time, as Redshift analyzes the queries being run on the cluster, it may further
+        adjust the table distribution style to be KEY-based.
+
+
+    - Similarly, Redshift analyzes queries being run to determine the optimal sort key for a table.
+
+
+
+- Selecting the Right Data Type for Columns
+
+    - Every column in a Redshift table is associated with a specific data type, and this data type ensures
+        that the column will comply with specific constraints.  For example, the 'sum' operation can only
+        be performed on numeric data types.  If you need to perform a sum operation on data that was
+        defined with a character of string type, you have to cast it, impacting performance.
+
+
+    - There are broadly 6 data types that Redshift currently supports:
+
+        1. Character Types
+
+             - CHAR(n), CHARACTER(n), and NCHAR(n) are fixed length character strings that only support
+                 single-byte characters.  Data is stored with trailing white spaces at the end to convert
+                 the string into a fixed length.  However, the trailing whitespace is ignored during
+                 queries.
+
+             - VARCHAR(n) and NVARCHAR(n) are variable-length character strings that support multi-byte
+                 characters.  When creating this data type, to determine the correct length to specify,
+                 you should mutiply num_bytes_per_character * max_num_characters.  Data is not padded with
+                 trailing whitespace.
+
+             - If you need multi-byte characters (ie the Euro symbol), always use VARCHAR.  If you don't
+                 and you know the maximum length of the data you want to store, CHAR types are more
+                 efficient (ie phone numbers or IP addresses).
+
+
+        2. Numeric Types
+
+             - There are 3 integer types.  You should always use the smallest type you need to store all
+                 expected values.
+
+                 SMALLINT/INT2          # Range of -32,768 to +32,767
+                 INTEGER/INT/INT4       # Range of -2147483648 to +2147483647
+                 BIGINT/INT8            # Range of – 9223372036854775808 to +9223372036854775807
+
+
+            - The DECIMAL type allows you to specify the precision and scale you need to store.  The
+                'precision' is the total number of digits on both sides of the decimal point.  The 'scale'
+                is the number of digits on the right-hand side of the decimal point.
+
+                DECIMAL(precision, scale)
+
+
+            - Floating-point types are used to store values with variable precision.  If you need exact
+                calculations, you should use the DECIMAL type.
+
+                REAL/FLOAT4                        # Up to 6 digits of precision
+                DOUBLE PRECISION/FLOAT8/FLOAT      # Up to 15 digits of precision
+
+
+        3. Datetime Types
+
+            - The DATE type supports storing a date without any associated time.  Data should always be
+                inserted enclosed with double quotation marks.
+
+            - The TIME/TIMEZ type supports storing a time without any associated date.  TIMEZ is used to
+                specify the time of day with the time zone, with the default time zone being UTC.  Time is
+                stored with up to 6-digit precision for fractional seconds.
+
+            - The TIMESTAMP/TIMESTAMPZ type is a combination of DATE, followed by TIME/TIMEZ.  If you omit
+                any part of the value, it will be set to 00.
+
+
+        4. Boolean Type
+
+            - The Boolean type is used to store single-byte literals with a True or False state or
+                UNKNOWN.
+
+                True       # Valid specifiers are {TRUE, 't', 'true', 'y', 'yes', '1'}
+                False      # Valid specifiers are {FALSE 'f' 'false' 'n' 'no' '0'}
+
+
+            - If a column has a NULL value, it is considered UNKNOWN.
+
+            - Regardless of what literal string was inserted into a column of Boolean type, the data is
+                always stored as 't' or 'f'.
+
+
+        5. HLLSKETCH Type
+
+            - The 'HLLSKETCH' type is a complex data type that stores the result of what is known as the
+                HyperLogLog algorithm.  The algorithm is used to estimate the cardinality of a large
+                multiset very quickly.
+
+            - For example, if you run a large social media site with hundreds of millions of people
+                visiting every day, you may want to estimate how many unique users you have each day,
+                week, or month.  Using traditional SQL for this query would take too long.
+
+            - So the HyperLogLog algorithm allows you to get a good estimate of the cardinality by trading
+                off some accuracy (error range is typically 0.1-0.6%) for a lot of efficiency.
+
+            - Redshift stores the results of the HyperLogLog in a data type called 'HLLSKETCH'.
+
+
+        6. SUPER Type
+
+            - To support semi-structured data (such as arrays or JSON data) more efficiently in Redshift, 
+                the SUPER type is provided.  You can load up to 1 MB of data in a SUPER type, and then
+                easily query without needing to impose a schema first.
+
+            - The SUPER data type offers significantly increased performance for querying semi-structured
+                data vs unnesting the full JSON document and storing it in columns.
+
+
+
+- Selecting the Optimal Table Type
+
+    - Redshift offers several different types of tables.  Making use of a variety of tables for different
+        purposes can significantly increase query performance.
+
+
+    - Coupling Storage and Compute - Local Redshift Tables
+
+        - The most common and default table type in Redshift is permanently stored on disk local to a
+            compute node and is automatically replicated for fault tolerance purposes.
+
+        - Redshift stores data in a columnar format, which is optimized for analytics and uses compression
+            algorithms to reduce disk lookup time when a query is run.
+
+        - By using ML-based automatic optimizations related to table maintenance tasks such as vacuum,
+            table sort, selection of distribution and sort keys, and workload management, Redshift can
+            turbocharge query performance.
+
+        - While the best performance is gained by coupling compute and storage, it can result in 
+            unnecessary cost when you need to scale only compute or storage.  To solve this, RA3 nodes
+            with 'Redshift Managed Storage' were introduced, which offer tightly coupled storage with SSD, 
+            along with additional S3 storage that can be scaled separately.  Redshift automatically manages 
+            the movement of data between local storage and S3 based on data access patterns.
+
+
+    - External Tables for Querying Data in S3
+
+        - To take advantage of our data lake (our single source of truth), Redshift supports the concept
+            of external tables.  These tables are effectively schema objects in Redshift that point to
+            DB objects in the Glue Catalog or EMR Hive Metastore.
+
+        - Once we have created the external schema in Redshift that points to a specific DB in the Glue
+            Catalog, we can query any of the tables that belong to that DB, and Redshift Spectrum will
+            access the data from the underlying S3 files.
+
+        - When running queries in Redshift, we are free to run complex joins on data between local and
+            external tables.
+
+        - A common use for Redshift Spectrum is where a company knows 80% of their queries access data
+            generated in the past 12 months, but 20% of their queries rely on historical data from the
+            past 5 years.  We load the last 12 months into Redshift, but store the past 5 years in S3.
+
+        - Another common case for external tables is to enable Redshift to read data from file formats
+            that are not natively supported in Redshift, such as Amazon ION, Grok, RCFile, and Sequence
+            files.
+
+
+    - Temporary Staging Tables for Loading Data into Redshift
+
+        - Redshift, like many other DW systems, supports the concept of a 'temporary table'.  Temporary
+            tables are automatically dropped at the end of a session.
+
+        - Temporary tables can significantly improve the performance of some operations as temporary tables
+            are not replicated in the same way permanent tables are, and inserting into temporary tables
+            does not trigger automatic cluster incremental backup operations.
+
+        - One of the common uses for temporary tables (aka 'staging tables') is for updating and inserting
+            data into existing tables.
+
+        - Traditional transactional DBs support an operation called UPSERT, which is useful for CDC.  An
+            UPSERT checks if there is an existing record based on the PK, and updates it if there is,
+            or inserts it if there is not.
+
+        - Since Redshift does not enforce primary keys or foreign keys (even though they are supported
+            for query optimization), there is not UPSERT clause supported in Redshift.  So, if you insert 
+            into a table where there is already a matching record, you can end up with duplicate versions of 
+            the same record.
+
+        - An alternative approach for handling CDC is to load the new data into a temporary table, then
+            perform an INNER JOIN of the temporary table with the existing table.
+
+
+    - Data Caching Using Redshift Materialized Views
+
+        - DWs are often used as the backend query engine for BI solutions.  Often, the queries used to
+            create a specific visualization will need to reference data and join data from multiple
+            Redshift tables, and perform aggregations and other calculations.
+
+        - Instead of having to rerun the same query over and over again as different users access the
+            dashboards, you can effectively cache the query results by creating a materialized view.
+            They precompute expensive operations (ie joins, aggregations, calculations) and store them
+            in a view.  The BI tool can then query the view.
+
+        - Materialized views are not updated when the underlying tables are updated, and a 'refresh
+            materialized view' Redshift SQL statement has to be run to refresh the view.
+
+        - A common example is to store the results of advanced queries and calculations needed to aggregate
+            sales by store daily.  Each night, the day's sales can be loaded into Redshift from the data
+            lake, and a materialized view can be created or refreshed.
+
+
+
+- Moving Data Between a Data Lake and Redshift
+
+    - Moving data between a data lake and a DW is a common requirement.  Data may be cleansed and processed
+        in Glue ETL jobs, and then hot data is loaded into Redshift so that it can be queried with BI
+        tools.
+
+
+    - There are certain use cases where data may be further processed in the DW, and this newly processed
+        data is exported back to the data lake so that other users and processes can consume it.
+
+
+
+- Optimizing Data Ingestion in Redshift
+
+    - While there are various ways you can insert data into Redshift, the recommended way is to bulk
+        ingest data using the Redshift COPY command.  The COPY command can ingest data from the following
+        sources:
+
+        - S3
+        - DynamoDB
+        - EMR
+        - Remote SSH Hosts
+
+
+    - When running the COPY command, you need to specify an IAM role, or the access key and secret access
+        key of an IAM user, that has relevant permissions to read the source and the required Redshift
+        permissions.  AWS recommends using an IAM Role.
+
+
+    - The copy command supports various formats, including CSV, JSON, Parquet, ORC, Avro, and many others.
+
+
+    - To take advantage of the multiple compute nodes when ingesting files, you should aim to match the
+        number of ingest files with the number of slices in the cluster.  Each slice can ingest data in
+        parallel with all the other slices.
+
+
+    - If you have one large ingest file, it should be split into multiple files, with each file having a
+        size between 1 MB - 1 GB (after compression).
+
+
+    - Note that the COPY operation is treated as a single transaction across all files.  If one file fails
+        to be copied, the entire operation has to be rolled back.
+
+
+    - While is is possible to use INSERT statements to add rows to a table, adding a single row or just a
+        few rows is not recommended.  This is a much slower way to ingest data.
+
+
+    - You can load data directly into Redshift from a Spark application running on EMR using the
+        Spark-Redshift JDBC driver.  In the background, the Spark DF you are loading is written into a
+        temporary S3 bucket, and then a COPY command is executed to load the data into Redshift.  You can
+        also read data from Redshift into a Spark DF using the same driver.
+
+      You can also accomplish the same thing in Glue using the same driver.
+
+
+
+- Exporting Data From Redshift to the Data Lake
+
+    - You can use the UNLOAD command to copy data from a Redshift cluster to S3.
+
+
+    - To maximize the performance of UNLOAD, Redshift uses multiple slices in the cluster to write out
+        data to multiple files.  Each file can be a maximum size of 6.2 GB, however it is generally
+        recommended to specify a MAXFILESIZE of 1 GB.
+
+
+    - When running an UNLOAD command, you specify a SELECT query to determine what data will be unloaded.
+        To unload a full single table, you would use a 'SELECT * FROM tablename' in the UNLOAD statement.
+        You can also specify a more complex query using JOIN, WHERE, and ORDER BY.
+
+
+    - By default, data is unloaded in a pipe-delimited text format, but unloading in Parquet format is
+        also supported.  Parquet is recommended for exporting data to S3.
+
+
+    - If you're performing an UNLOAD on a specific dataset regularly, you can use the ALLOWOVERWRITE option 
+        to allow Redshift to overwrite any existing files in the specified path. Alternatively, you can use 
+        the CLEANPATH option to remove any existing files in the specified path before writing data out.
+
+
+    - Another best practice recommendation for unloading large datasets to a data lake is to specify the 
+        PARTITION option and to provide one or more columns that the data should be partitioned by. When 
+        writing out partitioned data, Redshift will use the standard Hive partitioning format. For example, 
+        if you partition your data by the year and month columns, the data will be written out as follows:
+
+        s3://unload_bucket_name/prefix/year=2021/month=July/000.parquet
+
+
+    - When using the PARTITION option with the CLEANPATH option, Redshift will only delete files for the
+        specific partitions that it writes out to.
+
+
+
+- Loading Data into A Redshift Cluster and Running Queries
+
+    - In this hands on exercise, we'll create a new Redshift cluster and set up Redshift Spectrum so that
+        we can query data in external tables in S3.  Then, we'll load a subset of that data into a local
+        table in Redshift, and run some complex queries.
+
+
+    - We'll be setting up a Redshift cluster for a travel agency.  Agents need to ensure they can find the
+        best deal for accomodation in NYC and Jersey City close to popular tourist attractions.
+
+
+
+- Uploading Sample Data to S3
+
+    - We'll use a dataset from Inside Airbnb, an organization that provides Airbnb data under a Creative
+        Commons license.
+
+
+    - First, navigate to 
+
+         http://insideairbnb.com/get-the-data.html
+
+      Download the Jersey City and New York City 'Summary and Information metrics for listings' file
+        'listings.csv'.  Rename each file so that they can be identified separately (ny-listings.csv and
+        jc-listings.csv).
+
+
+    - Now, copy the listing files to the data lake's landing zone, creating a partition for each city.
+
+        $ aws s3 cp jc-listings.csv s3://dataeng-landing-zone-cah/listings/
+            city=jersey_city/jc-listings.csv
+
+        $ aws s3 cp ny-listings.csv s3://dataeng-landing-zone-cah/listings/
+            city=new_york_city/ny-listings.csv
+
+
+    - To verify that the files have been uploaded correctly, we can use S3 select to directly query
+        uploaded files.  Open the S3 console and navigate to the Jersey City file.
+
+        Services > S3
+          > Actions
+            > Query with S3 Select
+              > Run SQL query:
+
+
+    - Repeat this again with the NYC file to make sure it works also.
+
+
+
+- IAM Roles for Redshift
+
+    - For our Redshift cluster to be able to create EC2 networking resources behind the scenes, our
+        Redshift cluster needs permission to access specific EC2 networking resources.
+
+      When we create the first Redshift cluster in our account, Redshift will automatically create an 
+        IAM service-linked role called 'AWSServiceRoleForRedshift' and attach the managed policy called
+        'AmazonRedshiftServiceLinkedRolePolicy' to the role, providing the required permissions. 
+        Therefore, we do not need to create this role manually.
+
+
+    - Redshift Spectrum uses the Glue data catalog, so it requires AWS Glue permissions in addition to
+        S3 permissions.  If you are operating in a region where Glue is not supported, the Redshift
+        Spectrum uses the Athena catalog, so you'd require Athena permissions.
+
+
+    - To create the IAM role that grants the required Redshift Spectrum permissions:
+
+        > Services > IAM
+          > Roles
+            > Create role
+
+                Trusted Entity: AWS Service - Redshift
+                Use case: Redshift - Customizable
+
+                Permissions: Attach
+                  > AmazonS3FullAccess
+                  > AWSGlueConsoleFullAccess
+                  > AmazonAthenaFullAccess
+
+                Role name: AmazonRedshiftSpectrumRole
+
+                'Create Role'
+
+
+    - Copy the 'Role ARN' from the 'Summary' page, since we'll need this later.
+
+        ARN: arn:aws:iam::087097696457:role/AmazonRedshiftSpectrumRole
+
+
+
+- Creating a Redshift Cluster
+
+    - Navigate to the Redshift service to create a cluster.
+
+        > Services > Redshift
+          > Create cluster
+
+            Type: Free trial
+
+            'Create Cluster'
+
+
+    - Once the cluster has a status of 'Available', click on the cluster, and click on 'Properties'.
+
+        > Properties
+          > Cluster Permissions
+            > Attach IAM Roles
+
+              Role: AmazonRedshiftSpectrumRole
+
+              'Associate IAM Role'
+              'Save Changes'
+
+
+    - Now, on the left side of the Redshift console, click on 'Editor'.
+
+        > Editor > Connect to Database
+          > Create a new connection
+
+            Authentication: Temporary credentials
+            Cluster: My cluster
+            Database name: dev
+            Database user: awsuser
+
+            'Connect'
+
+
+    - Once connected, ensure 'dev' is the database and 'public' is the schema.  We'll run a query on the
+        sample database that is added with the Redshift trial version:
+
+        select * from sales limit 10;
+            
+
+
+- Creating External Tables for Querying Data in S3
+
+    - To query data in S3 using Redshift Spectrum, we'll need to define a database, schema, and table.
+        Note that in Redshift, a 'database' is a top-level container that contains one or more schemas,
+        and each schema can contain one or more tables.  When you query a table, you specify a schema
+        along with the table name.
+
+      In Glue, there is no concept of a schema, just a database, and tables are created in the database.
+
+
+    - Now, we'll create a new Redshift schema, defined as an external schema (meaning objects created in
+        the schema will be created in the AWS Glue Catalog), and we specify that we want to create a 
+        new database in the Glue Catalog called accomodations.
+
+      For Redshift to be able to write to the Glue catalog and access objects in S3, we need to specify
+        the ARN for the role we previously created.
+
+
+    - Run this command in the query editor to create a new external schema called 'spectrum_schema', and
+        to also create a new database in the Glue catalog called 'accomodations'.
+
+        create external schema spectrum_schema
+        from data catalog
+        database 'accomodation'
+        iam_role 'arn:aws:iam::087097696457:role/AmazonRedshiftSpectrumRole'
+        create external database if not exists;
+
+      Note that since we made a connection to the 'dev' database earlier, the external schema is created
+        as an object in the 'dev' database.
+
+
+    - We can now define an 'external table' that will be registered in our Glue data catalog under the
+        'accomodations' database.  When defining the table, we specify the columns that exist, the
+        column we have partitioned our data by (city), the format of the files (text, comma delimited),
+        and the S3 location of the files.  Make sure to update the S3 bucket name with your initials.
+
+        CREATE EXTERNAL TABLE spectrum_schema.listings(
+          listing_id INTEGER,
+          name VARCHAR(100),
+          host_id INT,
+          host_name VARCHAR(100),
+          neighbourhood_group VARCHAR(100),
+          neighbourhood VARCHAR(100),
+          latitude Decimal(8,6),
+          longitudes Decimal(9,6),
+          room_type VARCHAR(100),
+          price SMALLINT,
+          minimum_nights SMALLINT,
+          number_of_reviews SMALLINT,
+          last_review DATE,
+          reviews_per_month NUMERIC(8,2),
+          calculated_host_listings_count SMALLINT,
+          availability_365 SMALLINT)
+        partitioned by(city varchar(100))
+        row format delimited
+        fields terminated by ','
+        stored as textfile
+        location 's3://dataeng-landing-zone-cah/listings/';
+
+
+    - Verify that the table was created correctly by selecting 'spectrum_schema' from the dropdown on the
+        left-hand side and by expanding the 'listings' table to view the defined columns.
+
+    
+    - We now need to add the specific partitions that we created, which we can do by running the following
+        commands in the Redshift query editor.  Make sure to update the location so that it references
+        your bucket name:
+
+        alter table spectrum_schema.listings add
+        partition(city='jersey_city')
+        location 's3://dataeng-landing-zone-cah/listings/city=jersey_city/';
+
+        alter table spectrum_schema.listings add
+        partition(city='new_york_city')
+        location 's3:// dataeng-landing-zone-cah /listings/city=new_york_city/';
+
+
+    - Verify that the table and partitions have been created correctly by viewing them in the AWS Glue
+        console.  Open the Glue console in a new window and click on 'Databases'.
+
+        Database: accomodation
+        Table: listings
+
+      Click on 'View Partitions' to view the partitions that have been defined:
+
+        new_york_city
+        jersey_city
+
+
+    - Note that instead of defining the table manually in the Redshift console and adding the partitions,
+        we could have used a Glue Crawler to crawl the S3 location and automatically add the table and
+        partitions to the Glue data catalog.  
+
+      If we had done that, we would still have needed to create the Redshift external schema and define
+        the database, but we would not have needed to specify the column details for the table.
+
+
+    - To confirm that everything has been set up correctly, we can query the data using both Redshift
+        Spectrum and Athema.  In the Redshift query editor, run the following query:
+
+        select * from spectrum_schema.listings limit 100;
+
+      Note that when querying the table in Redshift, we query based on 
+        <redshift_external_schema_name>.<table_name>
+
+
+    - In the Athena console, run the following query:
+
+        select * from accommodation.listings limit 100;
+
+      Note that when we query the table in Athena, we query based on
+        <glue_database_name>.<table_name>
+
+
+
+- Creating a Schema for a Local Redshift Table
+
+    - With Redshift Spectrum, we pay for each query we run, based on the amount of data scanned.  If we
+        have a hot dataset that is going to be queried regularly, we may want to move required data into
+        a local Redshift table, so that we are not charged for every query.
+
+
+    - If we wanted to load the full dataset from S3 into Redshift, we could use the Redshift COPY command
+        to read data from S3 and load it into a local table.  However, we only want to query a subset of
+        the data from our S3 files, so we'll read in just the required data into a local table.
+
+      So, in this exercise, we will use Redshift Spectrum to read in just the required data and write it
+        out to a local Redshift table.
+
+
+    - First, we must create a new Redshift schema to store our local tables.  In the Redshift query editor
+        run:
+
+        create schema if not exists accommodation_local;
+
+
+    - We can now create a new local table that contains just the fields we require for our use case.  Run
+        in the query editor:
+
+        CREATE TABLE dev.accommodation_local.listings(
+          listing_id INTEGER,
+          name VARCHAR(100),
+          neighbourhood_group VARCHAR(100),
+          neighbourhood VARCHAR(100),
+          latitude Decimal(8,6),
+          longitudes Decimal(9,6),
+          room_type VARCHAR(100),
+          price SMALLINT,
+          minimum_nights SMALLINT,
+          city VARCHAR(40))
+        distkey(listing_id)
+        sortkey(price);
+
+      With this command, we have created a new local table in our 'dev' database, in the
+        'accomodation_local' schema, called 'listings'.
+
+
+    - To load data from our external Spectrum table into our new local table, we can run the following
+        query:
+
+        INSERT into accommodation_local.listings
+        (SELECT listing_id,
+         name,
+         neighbourhood_group,
+         neighbourhood,
+         latitude,
+         longitudes,
+         room_type,
+         price,
+         minimum_nights
+        FROM spectrum_schema.listings);
+
+
+
+- Running Complex SQL Queries Against Our Data
+
+    - We can now run some advanced queries against the local listings table we just loaded data into.
+        Our goal is to easily identify Airbnb listings in the NYC and Jersey City areas that are close
+        to specific tourist attractions.
+
+
+    - In the first part of our query, we create a temporary table called 'touristspots_raw', and inserts
+        the names and longitude and latitude of 2 popular NYC tourist attractions.  It then uses a Redshift
+        function called 'ST_Point' to convert the latitude and longitude of the tourist attractions into 
+        point geometry, which can be used in distance calculations.
+
+      This portion of the query results in a new virtual table called 'touristspots' that has 2 fields -
+        name and location.
+
+        WITH touristspots_raw(name,lon,lat) AS (
+         (SELECT 'Freedom Tower', -74.013382,40.712742) UNION
+         (SELECT 'Empire State Building', -73.985428, 40.748817)),
+        touristspots (name,location) AS (SELECT name, ST_Point(lon, lat) FROM touristspots_raw)
+        select name, location from touristspots
+
+
+    - Now, we want to convert the latitude and longitude of the values in our accomodation table into
+        point geometry.  We can do this with the following query:
+
+        WITH accommodation(listing_id, name, room_type, location) AS 
+        (SELECT listing_id, name, room_type, ST_Point(longitudes, latitude) from accommodation_local.listings)
+        select listing_id, name, room_type, location 
+        from accommodation
+
+
+    - Now, we can combine the previous 2 queries in a modified form and add the final part of our query.
+        The query will calculate the distance between a listing from our listings table, and either the
+        Freedom Tower or Empire State Building.
+
+      Then, we can sort the result by distance and return the 100 closest listings.
+
+        WITH touristspots_raw(name,lon,lat) AS (
+        (SELECT 'Freedom Tower', -74.013382,40.712742) UNION
+        (SELECT 'Empire State Building', -73.985428, 40.748817)
+        ),
+
+        touristspots(name,location) AS (
+        SELECT name, ST_Point(lon, lat)
+        FROM touristspots_raw),
+
+        accommodation(listing_id, name, room_type, price, location) AS
+        (
+        SELECT listing_id, name, room_type, price, ST_Point(longitudes, latitude)
+        FROM accommodation_local.listings)
+        SELECT
+          touristspots.name as tourist_spot,
+          accommodation.listing_id as listing_id,
+          accommodation.name as location_name,
+          (ST_DistanceSphere(touristspots.location, accommodation.location) / 1000)::decimal(10,2) AS
+            distance_in_km,
+          accommodation.price AS price,
+          accommodation.room_type as room_type
+        FROM touristspots, accommodation
+        WHERE tourist_spot like 'Empire%'
+        ORDER BY distance_in_km
+        LIMIT 100;
+
+
+    - Since our agents will be regularly running these queries to find the right Airbnb listing for our
+        customers, we can create a materialized view that contains all of our listings, along with the
+        distance between both the Empire State Building and Freedom Tower.
+
+        CREATE MATERIALIZED VIEW listings_touristspot_distance_view AS
+
+        WITH touristspots_raw(name,lon,lat) AS (
+        (SELECT 'Freedom Tower', -74.013382,40.712742) UNION
+        (SELECT 'Empire State Building', -73.985428, 40.748817)
+        ),
+
+        touristspots(name,location) AS (
+        SELECT name, ST_Point(lon, lat)
+        FROM touristspots_raw),
+
+        accommodation(listing_id, name, room_type, price, location) AS
+        (
+          SELECT listing_id, name, room_type, price, ST_Point(longitudes, latitude)
+          FROM accommodation_local.listings)
+
+        SELECT
+          touristspots.name as tourist_spot,
+          accommodation.listing_id as listing_id,
+          accommodation.name as location_name,
+          (ST_DistanceSphere(touristspots.location, accommodation.location) / 1000)::decimal(10,2) AS
+            distance_in_km,
+          accommodation.price AS price,
+          accommodation.room_type as room_type
+          FROM touristspots, accommodation;
+
+
+    - Now, we can query the materialized view:
+
+        select * 
+        from listings_touristspot_distance_view 
+        where tourist_spot like 'Empire%' 
+        order by distance_in_km 
+        limit 100;
