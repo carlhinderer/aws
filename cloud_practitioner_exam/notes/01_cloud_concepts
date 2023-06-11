@@ -1,0 +1,133 @@
+-----------------------------------------------------------------------
+| CHAPTER 1 - CLOUD CONCEPTS                                          |
+-----------------------------------------------------------------------
+
+- The 6 Advantages of Cloud Computing
+
+    1. Trade capital expense for variable expense (CAPEX for OPEX)
+
+        - Pay for infrastructure only as you need it, instead of huge upfront capital expenditures
+        - Only pay for resources that you are actively using
+        - Redirect business capital to more important areas of investment
+
+
+    2. Benefit from massive economies of scale
+
+        - AWS gets much better prices on hardware
+        - Can hvae components manufactured to their specifications
+
+
+    3. Stop guessing capacity
+
+        - Previously, predicting for future growth often led to overprovisioning
+        - This would be detrimental to balance sheets due to rapid depreciation
+        - Underprovisioning would lead to poor performance
+
+
+    4. Increase speed and agility
+
+        - Provision infrastructure in a few mouse clicks
+        - Build test and development environments, then just terminate them when you are done
+
+
+    5. Stop spending money running and maintaining data centers
+
+        - Building on-prem data centers has hidden costs, like engineers, real estate, and HVAC
+        - You don't have to worry about expensive maintenance contracts for hardware
+
+
+    6. Go global in minutes
+
+        - You have complete access to all regions, providing lower latency and superior customer experience
+        - Having multiple copies of resources also helps with disaster recovery and continuity
+        - Allows you to meet compliance or regulatory requirements related to where data is stored
+
+
+
+- Virtualization
+
+    - Virtualization technologies and hypervisors allow multiple VMs to be deployed on a single server.
+        A hypervisor allows physical hardware components of a single server to be emulated as multiple
+        virtual components.
+
+    - The hypervisor is responsible for enabling the OSs and applications running on VMs to access the
+        physical hardware in a manner that is controlled and isolates the resources from each other.
+
+    - Cloud providers provide the ability to provision virtualized infrastructure resources.
+
+
+
+- Cloud Computing Models
+
+    - IaaS
+
+        - Customers configure the underlying network, storage, and compute services that power their LOB
+            applications.  This is similar to owning and managing your own infrastructure, however the
+            components are virtualized.
+
+        - Ideal if you need greater control over how components need to be configured.
+
+        - Examples include EC2, EBS, and EFS.
+
+
+    - PaaS
+
+        - Removes the burden of configuring and managing underlying resources, such as compute, storage,
+            and network services.  Gives you a platform to to deploy and manage your applications.
+
+        - Cloud provider provisions and manages network architecture, firewall rules, storage, compute
+            services, OS management, and runtime environments.
+
+        - Examples include AWS Elastic Beanstalk, AWS OpsWorks, AWS Lambda, and AWS RDS.  Other examples
+            include Azure Functions and Google App Engine.
+
+
+    - SaaS
+
+        - Applications are completely hosted and managed by the provider.  You simply connect to these
+            applications via the internet and consume the services offered.  Since applications are accessed
+            via a web browser, installing client software is usually not required.
+
+        - You still often need either in-house expertise with the software or support from the provider
+            or third parties to configure the services for your business.
+
+        - Examples include Salesforce, GoToMeeting, MS Office 365, and Amazon Chime.
+
+
+
+- Cloud Deployment Models
+
+    - Public Cloud
+
+        - A business consumes IT services from a third-party vendor, such as AWS, over the internet.  This
+            is by far the most popular model.
+
+        - Generally paid for on a pay-as-you-go model, helping you transition from CAPEX to OPEX.  You are
+            charged based on how much you consume.
+
+        - Customers are offered a self-service capability and access to management consoles, command-line
+            interfaces, and APIs to configure and consume the services on offer.
+
+
+    - Private Cloud
+
+        - A business procures, installs, configures, and manages all the necessary infrastructure and
+            software components in house.  This is different from traditional on-premises IT in that
+            additional management software is deployed to allow different parts of the business to carry
+            out self-service tasks from an available catalog of services.
+
+        - Highly customizable to suit the needs of your organization.
+
+
+
+    - Hybrid Cloud
+
+        - This is a combination of IT services deployed both on-premises and integrated with one or more
+            third-party providers.
+
+        - Connectivity options between an on-premises environment and a cloud provider include setting up
+            a secure IPSec-based VPN tunnel over the public internet or establishing a dedicated fiber-based
+            connection that bypasses the public internet altogether.
+
+        - Generally also used to improve Disaster Recovery projects, where services can be hosted in 
+            multiple places.
