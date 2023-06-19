@@ -1,0 +1,217 @@
+-----------------------------------------------------------------------
+| CHAPTER 6 - NETWORKING SERVICES - VPCs, ROUTE53, & CLOUDFRONT       |
+-----------------------------------------------------------------------
+
+- On-Premises Corporate Networks
+
+    - Corporate networks are usually divided into multiple smaller networks.  At the most basic level, a corporate
+        network consists of:
+
+        1. An internal network for internal backend purposes
+        2. A DMZ, where services such as web servers that con be exposed to the internet are deployed
+
+
+    - For one example of a corporate setup:
+
+        1. A Backend Network vLAN is not connected to the internet
+
+        2. An EUC (End User Computing) vLAN has workstations that can make egress connections to the internet
+
+        3. A DMZ vLAN with the company's web servers that allows ingress connections from the internet
+
+
+    - Similarly, on AWS, we need to configure virtual networks in a manner that offers security, isolation, and
+        inbound access only where it is needed.
+
+
+
+- IPv4
+
+    - IPv4 addresses consist of 4 octets, each with a value 0-255.
+
+        Decimal:  192.168.1.6
+        Binary:   11000000.10101000.00000001.00000110
+
+
+    - IPv4 can only support 2**32 addresses (~4B).  For this reason, the IANA decided to allocate ranges of
+        addresses for private use only.  These can be used within networks and won't cause conflicts with other
+        networks.
+
+        10.0.0.0/8         # 10.0.0.0 - 10.255.255.255
+        172.16.0.0/12      # 172.16.0.0 - 172.31.255.255
+        192.168.0.0/16     # 192.168.0.0 - 192.168.255.255
+
+        169.254.0.0 - 169.254.255.255        # APIPA addresses used for internal Microsoft networks
+
+
+    - Hosts with private IPv4 addresses still need to be able to reach the internet.  NAT, a service configured
+        on the router, is used for this.  The router has a public IP address and relays requests from internal
+        devices to the internet, acting as a proxy in between.
+
+
+    - IPv6 was created by the IETF to address the limitations of IPv4.  IPv6 uses 128-bit addresses, so it gives
+        us 2**128 addresses.  AWS offers IPv6 as an option to set up cloud networks, but many companies
+        continue to use IPv4 due to NAT capabilities and interopability with legacy devices.
+
+
+
+- Network Sizes and Classes
+
+    - The IETF designed different classes of IPv4 addresses to help define different network sizes and use cases.
+        Classes A-C are unicast addresses that the public can use to build networks.  Class D are multicast
+        addresses, and Class E is reserved for experimental use.
+
+
+    - The way these classes define network sizes is to split the IP address into a network portion and a host
+        portion.
+
+        - Class A
+            - The first 8 bits are the network portion (Range 0-127)
+            - The remaining 24 bits are the host portion
+            - The far left bit is set to 0 to denote class A
+
+            0          Network     Host
+            [1 bit]    [8 bits]    [24 bits]
+
+
+        - Class B
+            - The first 16 bits are the network portion (Range 128-191)
+            - The remaining 16 bits are the host portion
+            - The 2 far left bits are set to 10 to denote class B
+
+            10         Network    Host
+            [2 bits]   [16 bits]  [16 bits]
+
+
+        - Class C
+            - The first 24 bits are the network portion (Range 192-223)
+            - The remaining 8 bits are the host portion
+            - The 2 far left bits are set to 11
+
+            110        Network    Host
+            [3 bits]   [24 bits]  [8 bits]
+
+
+    - We can easily figure out which class a particular IP address belongs to.
+
+        - We can confirm that 192.168.1.6 is a class C address
+        - This means that the network portion is 192.168.1.x
+        - The host (x) can be any number 1-254
+
+
+    - Note that the first and last addresses of any host network are unusable.
+
+        - The first address in a host network is known as the 'network ID'.
+            192.168.1.0
+
+        - The last address in a host network is known as the 'broadcast address'.
+            192.168.255.255
+
+        - To find the number of usable addresses in an IP block:
+            2**number_of_host_bits - 2
+
+
+
+- Subnet Masks
+
+    - Subnet masks allow you to split an IP address block into a network portion and host portion.  Host devices
+        on the same network portion can easily talk to one another and will need some form of routing to talk to 
+        hosts in other networks.
+
+
+    - With our previous example, the network portion is 24 bits and the host portion is 8 bits.
+
+        IP Address
+        (192.168.1.6)       11000000 10101000 00000001 00000110
+
+        Subnet Mask
+        (255.255.255.0)     11111111 11111111 11111111 00000000
+
+        Logical AND         
+        (192.168.1.0)       11000000 10101000 00000001 00000000
+
+
+    - If 2 IP addresses ANDed together with their subnet mask produce the same value, they are on the same network.
+
+
+
+- Subnetting
+
+    - Subnetting is the process by which you can create subnetworks within a larger network.  In each network, you
+        may need to create smaller, isolated portions of the network, such as one portion for backend servers and
+        one portion for frontend servers.
+
+    - The process of creating subnets involves borrowing additional bits from the host portion of an IP address
+        range.  The borrowed bits are used to create smaller subnetworks within a larger primary network.
+
+
+    - For example, if we want to create 8 subnetworks, each capable of hosting 30 IP addresses, using a standard
+        Class C address, we could use the folloring blocks:
+
+        Network 1 – 192.168.1.0 (subnet mask: 255.255.255.0)
+        Network 2 – 192.168.2.0 (subnet mask: 255.255.255.0)
+        Network 3 – 192.168.3.0 (subnet mask: 255.255.255.0)
+        Network 4 – 192.168.4.0 (subnet mask: 255.255.255.0)
+        Network 5 – 192.168.5.0 (subnet mask: 255.255.255.0)
+        Network 6 – 192.168.6.0 (subnet mask: 255.255.255.0)
+        Network 7 – 192.168.7.0 (subnet mask: 255.255.255.0)
+        Network 8 – 192.168.8.0 (subnet mask: 255.255.255.0)
+
+     This design works perfectly, but wastes a lot of addresses.  It may not be a big deal if you use private
+       addresses, but you must typically pay for public IP addresses.
+
+
+    - Instead of using this approach, we can use subnetting and subnet masks to break up a single network into
+        multiple smaller networks.  To do this, we'll borrow 3 bits from the host portion to create 8 subnets
+        in a single network.
+
+        IP Address Block =  192.169.1.0
+        Subnet Mask =       255.255.255.224
+
+    
+      Here, we can see that 8 individual subnetworks can be created:
+
+        [Block 1]  192.168.1.0      (192.168.1.0 - 192.168.1.31)
+        [Block 2]  192.168.1.32     (192.168.1.32 - 192.168.1.63)
+        [Block 3]  192.169.1.64
+        [Block 4]  192.168.1.96
+        [Block 5]  192.168.1.128
+        [Block 6]  192.168.1.160
+        [Block 7]  192.168.1.192
+        [Block 8]  192.168.1.224
+
+
+    - Using subnet masking, we can identify which network a particular IP address belongs to.
+
+        IP Address:     192.168.1.130
+        Subnet Mask:    255.255.255.224
+
+        Network:        192.168.1.128
+
+
+
+- CIDR (Classless Interdomain Routing)
+
+    - Instead of using subnet masking, we can use CIDR.  With CIDR, you can create networks of different sizes
+        like we do with subnet masks, but it offers more flexibility.  You can divide your network into smaller
+        subnets using CIDR blocks.
+
+
+    - When defining a network, CIDR blocks are displayed as part of the IP address block with a slash followed
+        by a block.  For example, the IP address 192.168.1.6 could belong to a network 192.168.1.0/24.
+
+        - A CIDR block of /24 will have 8 bits for the host, so there are 256 possible IP addresses in the
+            block.  The IP network with a CIDR block of 192.168.1.0/24 is a single network that can host
+            addresses from 192.168.1.1 - 192.168.1.254.
+
+
+    - For another example, we will use the IP range from 10.0.0.0 - 10.0.255.255, which is a private range for
+        our internal network.
+
+        - We'll use a network IP with a CIDR block of 10.0.0.0/16.  In this network, we'll have 2**16 = 65,536
+            IP addresses.  Subtracting the network and broadcast addresses, we can have 65,534 possible hosts.
+
+        - This is a very large network, so we may want to divide this network into smaller subnets for resource
+            isolation and separation.  We can create subnets by increasing the CIDR block value.  To do this,
+            we can have subnets of 10.0.0.0/20 within the 10.0.0.0/16 network.  Each subnet would have
+            2**12 - 2 = 4,094 usable IP addresses.
