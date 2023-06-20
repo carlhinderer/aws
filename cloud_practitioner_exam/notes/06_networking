@@ -215,3 +215,235 @@
             isolation and separation.  We can create subnets by increasing the CIDR block value.  To do this,
             we can have subnets of 10.0.0.0/20 within the 10.0.0.0/16 network.  Each subnet would have
             2**12 - 2 = 4,094 usable IP addresses.
+
+
+
+- VPCs (Virtual Private Clouds)
+
+    - A VPC is a virtual network in the cloud.  You choose the Region and parameters, such as the IP address
+        range and any subnets for resource isolation.
+
+    - Resources deployed in your VPC can then access services on the internet or grant inbound access from the
+        internet (for instance, if you're hosting a web server).
+
+    - AWS automatically provides you with a default VPC in each Region.  These default VPCs are designed to get
+        you up and running with the ability to deploy EC2 instances that can access the internet.  If necessary,
+        they can also allow direct inbound access from the internet.
+
+    - You can also configure custom VPCs to suit your business requirements.  When configuring a new VPC, you 
+        need to define an IP address block from one of the private IP ranges.  Your VPC spans the entire Region
+        in which you deploy it, so you can place workloads in different AZs within the VPC to design for high
+        availability.
+
+
+
+- VPC Subnets
+
+    - Depending on your requirements, you can configure your non-default VPCs with multiple subnets.
+
+
+    - A subnet is a subset of the VPC, and this is defined in the IP address block of the subnet.
+
+        - For example, the IP address block of our VPC is 10.0.0.0/16.
+
+        - We create the public 'Subnet-1' with a CIDR block of 10.0.1.0/24.
+
+        - Other subnets defined in the VPC would need to have non-overlapping subsets of IP ranges from the
+            primary VPC block.  For instance, 'Subnet-2' could have a CIDR block of 10.0.2.0/24.
+
+
+    - Subnets are restricted to a single AZ.  This means that you can recreate multiple subnets across multiple
+        AZs, which would host replica resources to offer high availability.  If a single AZ (and subnet) were to
+        go offline, you can redirect traffic to a replica resource in the other subnet (in the other AZ).
+
+
+
+- Internet Access
+
+    - By default, your custom VPCs need to be configured with internet access if you want the EC2 instances in the
+        VPC to send traffic to the internet.  Also, if you deploy servers that require direct inbound access from
+        the internet, you need to deploy them in subnets that have a direct route to the internet.
+
+    - You can define which subnets have direct access to the public internet, called 'public subnets'.  You can also
+        define which subnets are private, called 'private subnets'.
+
+
+    - To configure a VPC with internet access, you need to deploy an internet gateway.  This is a free component
+        that can be attached to your VPC to grant the VPC internet access.
+
+        - In addition, you need to configure route tables associated with the public subnet to have direct access
+            to the internet gateway.
+
+        - EC2 instances which are deployed in this public subnet can then send traffic to the public internet, and
+            can be configured to receive direct inbound traffic from the internet.
+
+        - An additional requirement is that your EC2 instances in the public subnet must also have a public IP
+            address.  This can by dynamically assigned by AWS to the EC2 instances.  Note that this public IP
+            address is dynamic, so if the EC2 instance is stopped and restarted, it will likely change.  In most
+            cases, this is acceptable, since the EC2 instances are behind a load balancer.
+
+
+    - If you need a static public IP address, you can configure your EC2 instances with an elastic IP address.
+
+        - Elastic IP addresses are static and remain in your account until you release them.
+
+        - Elastic IP addresses can be reassigned from one EC2 instance to another.  For instance, they can be
+            automatically reassigned to a standby EC2 instance if the primary instance fails.
+
+        - Elastic IP addresses are free only while they are associated with an EC2 instance in the 'Running' state.
+            If you have an EC2 instance in the 'Stopped' state, you will incur charges for the elastic IP address
+            on an hourly basis.
+
+
+    - Example
+
+        VPC
+        10.0.0.0/16            |
+                      Internet Gateway
+                             |    |
+                AZ 1A        |    |     AZ 1B
+            --------------- /      \----------------
+
+            [Public Subnet-1]      [Public Subnet-2]
+            DMZ 10.0.1.0/24        DMZ 10.0.2.0/24
+            Web Servers            Web servers
+
+            [Private Subnet-1]     [Private Subnet-2]
+            10.0.3.0/24            10.0.4.0/24
+            DB Instance            DB Instance
+
+
+
+- VPC Security
+
+    - One of the primary reasons for building a VPC is to implement firewall security to ensure that access to the
+        resources deployed within the VPC is carefully managed.  AWS offers 2 types of security services to build a
+        secure environment, Security Groups and Network Access Control Lists.
+
+
+    - Security Groups
+
+        - A 'security group' is a firewall that is designed to allow you to configure what type of traffic you permit,
+            inbound or outbound, to your EC2 instances.
+
+        - When you launch an EC2 instance, you must assign at least one security group to it, which must contain the
+            necessary rules for any inbound and outbound traffic you want to allow.  You can associate up to 5
+            security groups with an instance.  Security groups act at the instance level, not at the subnet level.
+
+        - Each VPC comes with a default security group that allows all traffic inbound, but only where the source of
+            that traffic is the security group itself.  This means that if you have 2 EC2 instances associated with
+            the same security group, then one instance will accept traffic initiated by the other instance.  In 
+            addition, all outbound traffic to any destination is permitted (for example, so that the instances can
+            download OS updates).
+
+        - Security groups do not allow inbound traffic from other sources until you create the necessary rules.  If
+            you are configuring a web server, you need to create an inbound rule for HTTP and specify the source
+            of the traffic with an IP address range.
+
+        - Note that even if you haven't configured inbound rules, responses to any outbound traffic will be permitted
+            inbound.  This feature is what makes security groups stateful.
+
+
+        - Some additional key features:
+
+            - You can configure allow rules, but you cannot configure explicity deny rules.
+            - You can specify separate rules for inbound and outbound traffic.
+            - You can filter traffic based on protocols and port numbers.
+            - You can specify sources and destinations that can be other security groups, offering a layered approach.
+
+
+    - NACLs (Network Access Control Lists)
+
+        - NACLs are another type of firewall service that are designed to protect entire subnets.  Instead of being
+            configured at the instance level, they can be configured to allow of deny traffic from reaching subnets.
+
+        - A default NACL is configured in every VPC, which is configured to allow all inbound and outbound traffic.
+            This is acceptable, because traffic must still be configured via security groups, which block all
+            inbound traffic by default.
+
+        - You can configure your subnets with custom NACLs, which block all inbound and outbound traffic.  In this
+            case, additional config will be required to create any necessary inbound and outbound rules.
+
+        - NACLs are stateless, so you have to configure both inbound and corresponding outbound rules for traffic to
+            flow and be responded to.
+
+
+
+- NAT
+
+    - We deploy public-facing resources such as web servers in public subnets, and we put other resources such as 
+        DB servers or application servers (which should not be directly accessible from the internet) in private
+        subnets.  However, application servers may need access to the internet to download updates or patches.
+
+    - Since these servers won't have a public IP address, we need a mechanism for them to access the internet.
+        To fulfill this requirement, we can set up and configure a NAT service.
+
+    - This NAT service needs to be placed in the public subnet and have an elastic IP address attached to it.
+        Your route table is then configured with a rule to allow internet-based traffic from EC2 instances in
+        the private subnet to access the internet via this NAT service.  The NAT service relays requests, acting
+        as a proxy.
+
+    - Note that if you are using IPv6, and you want to ensure EC2 instances can access the internet this way, you
+        need to route traffic from those instances via an 'egress-only internet gateway'.
+
+
+
+- VPC Peering
+
+    - A VPC peering connection is a private network connection between 2 VPCs.  The service allows you to connect
+        multiple VPCs so that instances in one VPC can access resources in another VPC.
+
+    - This means that traffic between 2 VPCs over a peering connection do not traverse the public internet, and
+        this offers greater levels of bandwidth and security.  The connections between the peers are highly
+        available and there is no single point of failure.
+
+    - You can create VPC peering connections between VPCs in one account or between AWS accounts.  Peering connections
+        can also be configured between VPCs in the same Region or across different Regions.
+
+
+
+- VPC Transit Gateway
+
+    - The problem with VPC peering is that every VPC must establish a one-to-one connection with its peer.  Once the
+        connections have been established, you also need to configure your route tables in each of the peered VPCs
+        to direct appropriate traffic across the peering connection.  If you have multiple VPCs that need to connect to
+        each other, this leads to lots of individual connections and route table entries.
+
+    - With AWS Transit Gateway, you can connect your individual VPCs together via the gateway in a hub-and-spoke model.
+        Each VPC just needs a single connection to the Gateway, and can then route traffic to other VPCs as long as
+        the necessary route table configurations allow it to do so.
+
+    - Transit Gateways can greatly reduce the architectural design overhead when trying to connect many VPCs together.
+
+
+
+- VPNs (Virtual Private Networks)
+
+    - You can also connect your VPC to your corporate network (on-premises or a colocation data center).  This type of
+        connection is known as a VPN.  
+
+    - A 'VPN' is a secure encrypted site-to-site tunnel established between 2 endpoints over the public internet.  It
+        offers AES 128 or 256-bit IPSec (Internet Protocol Security) encryption, which means you can transfer data
+        between 2 endpoints securely.
+
+    - To set up a VPN connection between your on-premises network and the VPC, you need to create a VPG (Virtual
+        Private Gateway) and attach it to your VPC.  You will also need to configure a customer gateway, which is a
+        physical or virtual device located in the on-premises network that connects to the VPG over the internet.
+
+    - AWS supports a wide variety of customer gateway devices, including Cisco, Juniper, and Check Point devices.  Once
+        the VPN connection has been established, you still need to configure the route tables on both the internal
+        network and VPC to direct appropriate traffic over the tunnel.
+
+    - Note that the bandwidth you get over a VPN connection is limited to what your ISP offers.  Also, AWS has a hard
+        limit of 1.26 Gbps.  You are also dependent on the routing mechanisms of the public internet.  If you require
+        a more dedicated connection that bypasses the public internet altogether, Amazon offers a service called
+        Direct Connect.
+
+
+
+- Direct Connect
+
+    - Direct Connect is a service that enables you to connect your corporate data center to your VPC and AWS public
+        services that bypasses the internet altogether.  This requires laying down fiber cabling between your
+        corporate office and a local Amazon Direct Connect partner.  These links can operate at 1 Gbps, 10 Gbps, or
+        even 100 Gbps, and offer an ultra-high-speed, secure private connection.
