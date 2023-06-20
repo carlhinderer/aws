@@ -447,3 +447,261 @@
         services that bypasses the internet altogether.  This requires laying down fiber cabling between your
         corporate office and a local Amazon Direct Connect partner.  These links can operate at 1 Gbps, 10 Gbps, or
         even 100 Gbps, and offer an ultra-high-speed, secure private connection.
+
+
+
+- DNS and Global Routing with Route53
+
+    - Route53 is AWS's global DNS.  It offers 3 primary functions:
+
+        1. Domain registration
+        2. DNS routing
+        3. Health checks
+
+
+
+- Domain Registration
+
+    - To use a domain name for your website, you need to register it with a domain registrar.  Route53 offers
+        complete domain name registration services.  When you choose a name to register, you do it under a 
+        TLD (Top-Level Domain) such as .com, .org, or .co.uk.
+
+    - As part of the registration, you purchase a lease duration for your domain name, which can be anywhere from 1-10
+        years.  You need to renew this lease before expiry, or someone else will be able to register the name.
+
+    - Once you have registered the domain name, you need to host it with a DNS service provider.  Often, the 
+        registration and hosting are offered by the same company (Route53 in this case).  The hosting service allows
+        you to create resource records for your domain, for instance to configure the domain name to point to the IP
+        address of a web server.
+
+
+    - There are several types of resource records that you can create.  Examples include:
+
+        - Name:              iaasacademy.com
+          Type:              A - IPv4 Address
+          Value:             92.204.222.124
+          Description:       Points to server or load balancer hosting the website
+
+        - Name:              iaasacademy.com
+          Type:              MX - Mail exchange
+          Value:             iaasacademy-com.mail.protection.outlook.com
+          Description:       Points to email server / service provider
+
+        - Name:              portal.iaasacademy.com
+          Type:              CNAME
+          Value:             iaasacademy.com
+          Description:       Canonical name to map one domain name to another
+
+
+    - When configuring your domain names, you also need to define a zone file, which will host resource records for
+        your domain name.  It is in a zone file where you create resource records, such as the A record.
+
+
+
+- Hosted Zones
+
+    - To create the necessary resource records for your domain name, you need to set up a hosted zone on Route53.
+        A 'hosted zone' is a container that is used to store and manage your resource records and allows you to
+        define how traffic is routed to your domain (ie 'example.com') and any subdomains (ie 'portal.example.com').
+
+
+    - There are 2 types of hosted zones you can set up on Route53:
+
+        1. Public hosted zone
+
+             This is a container that allows you to define how you want to route traffic for your domain name across
+               the public internet.
+
+        2. Private hosted zone
+
+             This is a container that allows you to define how you want to route traffic for your domain name across
+               private networks, such as one or more of your VPCs.  Route53 will route traffic for the domain name to
+               resources configured in your VPCs based on the resource records you create.  For example, you could
+               use a friendly name like 'devserver.example.com' that points to an EC2 instance within your VPCs,
+               which other resources in the VPC can then connect to.  This is much easier to manage than hard-coded
+               IP addresses.
+
+
+
+- DNS Hostnames
+
+    - AWS provides a DNS server (Route53 Resolver) for your VPC.  This enables AWS to configure DNS hostnames for the
+        instances you deploy in your VPC.
+
+
+    - DNS hostnames comprise a hostname and a domain name, such as 'myserver.mycompany.com'.  Hostnames allow you to
+        create unique names for your EC2 instances.  In addition, AWS provides 2 types of DNS hostnames:
+
+
+        - Private DNS hostnames = These resolve to the private IPv4 address of the instance.  The DNS hostname can take
+                                    one of the following forms:
+
+                                    ip-private-ipv4-address.ec2.internal              # For the us-east-1 Region
+                                    ip-private-ipv4-address.region.compute.internal   # For other Region
+
+
+        - Public DNS hostnames  = These resolve a public DNS hostname to the public IPv4 address of the instance
+                                    outside the network of the instance.  The DNS hostname can take one of the following
+                                    forms:
+
+                                    ec2-public-ipv4-address.compute-1.amazonaws.com         # For the us-east-1
+                                    ec2-public-ipv4-address.region.compute.amazonaws.com    # For other Regions
+
+
+
+- Routing Policies
+
+    - Route53 also offers several complex routing policies and configurations.  These routing policies enable you to 
+        define various rules that offer the ability to build highly available solutions or redirect customers to
+        resources that are closer to their location and reduce latency.
+
+
+    - Here are the various routing policies available with Route53:
+
+        - Simple routing policy
+
+            This is the most basic and default routing policy.  This resource record allows you to map a domain name
+              to a single resource, such as an IP address or DNS endpoint of an elastic load balancer.  The policy
+              engine will not check whether the resource is functioning and available.
+
+
+        - Failover routing policy
+
+            To offer high availability, you can host 2 copies of your resources, ideally across different Regions.
+              One set of resources will be designated as the primary, and the other as the secondary.  Route53 performs
+              health checks on the primary, and will redirect traffic to the secondary on a failure to connect to the
+              primary.  This gives you an active-passive failover.
+
+
+        - Geolocation routing policy
+
+            This routing policy enables you to route traffic based on the geographical location of the users.  The user's
+              location is determined from the source of DNS queries to the service.  This is particular useful when you 
+              need to ensure your content is only accessible in locations where you have distribution rights.
+
+
+        - Latency routing policy
+
+            This routing policy is useful when you have resources deployed in multiple Regions, and you wish to route
+              your users' traffic to the Region that offers the lowest latency.
+
+
+        - Weighted routing policy
+
+            This routing policy enables you to route different ratios of your total traffic to different resources
+              associated with a single domain.  For example, you could route 3/4 of the traffic to one copy of a resource
+              and 1/4 to another copy.  This is particularly useful when performing a rolling update.
+
+
+
+- Health Checks
+
+    - Route53 can be used to perform health checks against your resources, such as web servers, elastic load balancers
+        and static web sites.  There are 3 types of health checks:
+
+
+        - Health checks that monitor an endpoint
+
+            This monitors an endpoint you specify, such as an IP address or domain name
+
+
+        - Health checks that monitor other health checks
+
+            This can be used to monitor multiple resources, and the overall health of a collection of resources based on
+              some minimum number of resources that are healthy.  If the number drops below the minimum threshold, Route53
+              can take appropriate action.
+
+
+        - Health checks that monitor CloudWatch alarms:
+
+            You can create CloudWatch alarms that monitor your resources' metrics (for example, the number of healthy EC2
+              instances behind an elastic load balancer).  You can configure Route53 to monitor the same data stream that
+              CloudWatch monitors for the alarms and will mark the resource as unhealthy if the thereshold values are
+              crossed.
+
+
+
+- Traffic Flow and Routing Policies
+
+    - You may need to create complex routing of traffic using a combination of resource records and routing policies.
+        For instance, you may create latency routing policies across several regions, the reference weighted records in
+        each region for your resources.  Each configuration is known as a 'traffic policy', and Route53 provides a visual
+        editor to design them.
+
+
+    - Note that you can only use a traffic flow to create records in publicly hosted zones:
+
+        1. Geoproximity routing policy = This allows you to route traffic based on the location of your resources
+
+        2. Route53 Resolver = You can perform DNS resolution between the Route53 Resolver and DNS resolvers on your
+                                network by configuring forwarding rules.  In this case, your network can comprise your
+                                VPC, other peered VPCs, or even your on-premises data centers.
+
+
+
+- Implementing a CDN with CloudFront
+
+    - AWS CloudFront is a CDN that helps you distribute your static and dynamic digital content globally with low-latency
+        connections.  CloudFront uses edge locations and regional edge caches to cache content closer to your end users'
+        locations.
+
+    - You can host your content in one specific Region, and a user who attempts to access it in another Region will
+        retrieve the content via the edge location over the AWS backbone network.  Also, the content will be cached at
+        a local edge location closer to the user for a period (known as the TTL or Time-to-Live).
+
+    - To configure CloudFront, you create a distribution endpoint that defines the type of content you want to serve
+        and the source of that content.  The source can be an S3 bucket, an S3 bucket configured as a static website, 
+        an EC2 instance, an elastic load balancer, or others.  As part of your configuration, you get a CloudFront URL,
+        which you provide to your users to access your content via CloudFront.  You can also use company-branded custom
+        URLs.
+
+
+    - When you configure your CloudFront distributions, you can choose to serve your content over HTTP and HTTPS.  Some
+        examples of types of content that can be served include:
+
+        - Static and dynamic content (ie HTML, CSS, JavaScript, images)
+        - Video on demand in different formats (ie Apple HTTP Live Streaming and Microsoft Smooth Streaming)
+        - Live events and conferences
+
+
+
+- Choosing a Price Class for Your CloudFront Distribution
+
+    - Instead of charging on a per-edge-location basis, Amazon has aggregated edge location across Regions into 3
+        specific price classes:
+
+
+        1. All edge locations globally
+
+             This is the default, the most expensive option, and offers the best performance.
+
+
+        2. United States; Canada; Europe; Hong Kong, Philippines, South Korea, Taiwan, Singapore; Japan; India; 
+             South Africa; and Middle East regions
+
+             This class excludes the most expensive regions.
+
+
+        3. United States, Canada, and Europe
+
+            This class is the least expensive.
+
+
+
+- Amazon API Gateway
+
+    - Amazon API Gateway helps you design application solutions that favor microservices architectures.  Without an API
+        gateway, frontend developers must be aware of all backend APIs and call each of them separately.  With an API
+        gateway, you create an abstraction layer that exposes all APIs that need to be made available to clients.
+
+    - Amazon API Gateway can provide access to backend data, Lambda functions, databases, and more.  It handles all
+        incoming traffic and is capable of processing thousands of concurrent API calls.
+
+    - API Gateway also has features such as authorization, access control, monitoring, and protection against DDoS
+        attacks.
+
+    - API Gateway offers optimization features such as response caching and payload compression.
+
+
+
+- Exercise - Set Up a Public Subnet VPC
