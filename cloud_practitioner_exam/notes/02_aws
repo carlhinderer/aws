@@ -1,0 +1,161 @@
+-----------------------------------------------------------------------
+| CHAPTER 2 - AWS & THE GLOBAL INFRASTRUCTURE                         |
+-----------------------------------------------------------------------
+
+- AWS
+
+    - AWS, a subsidiary of Amazon, is the largest cloud-computing provider in the world.  It offers over
+        175 distinct services to clients from data centers located across the globe.  These services are
+        accessible over the internet on a metered pay-as-you-go model.
+
+
+    - History of AWS
+
+        2002 = AWS platform launched internally
+        2006 = Official launch of SQS, EC2, S3
+        2010 = Amazon retail site migrated to AWS
+        2015 = One million active customers each month in 190 countries
+
+
+
+- AWS Global Infrastructure
+
+    - An AWS Region is a physical location where a cluster of data centers is hosted.  Within each region,
+        data centers are built such that small groups of the large cluster are separated by a distance 
+        that falls within 60 miles of each other.  These logically and physically separated groups of
+        data centers form Availability Zones (AZs).
+
+    - AWS currently spans 77 AZs within 24 geographical regions around the world.
+
+
+
+- Regions
+
+    - A Region will consist of a minimum of 2 AZs, and many consist of 3+.  The 'us-east-1' region in
+        northern Virginia consists of 6 AZs.  Most new services are launched in this region.
+
+
+    - Benefits of AWS's multiple-region strategy for customers:
+
+        - Put infrastructure closer to customers, reducing latency
+        - Put within political/national borders to adhere to sovreignty and compliance regulations
+        - Isolate groups of resources from each other for failover and DR scenarios in case outages occur
+
+
+    - Many services are based on regions, so you need to select a region you want to deploy a service into.
+
+
+
+- AZs
+
+    - AZs are the logical and physical grouping of data centers withing a given Region.  An AZ is a logical
+        representation of a metropolitan area where AWS has deployed one or more data center facilities.
+
+    - The primary purpose of having multiple AZs is to offer customers the opportunity to build 
+        highly-available, fault-tolerant, and scalable solutions.  This is made possible by the fact that
+        AZs within a Region are connected to each other over high-bandwidth, low-latency private metro-fiber
+        links, delivering high throughput connections between the zones.
+
+    - You can achieve synchronous replication between AZs.  This means that you can deploy multiple copies
+        of your application on servers across the AZs.  If there is an outage at one of the AZs, you can
+        continue to serve customers with replicas running in other AZs.
+
+    - This design is possible because we can put replica servers in multiple AZs and distribute end-user
+        traffic using an AWS ELB, which monitors the health of the servers and sends traffic only to
+        servers that are online and responding.
+
+
+
+- Edge Locations
+
+    - In addition to Regions and AZs, AWS also offers another type of hosting service called 'edge locations'.
+        These edge locations also host the physical server infrastrucutre, storage devices, and networking
+        equipment.  In addition, edge computing services provide infrastructure that enables data to be
+        processed closer to the end customer.  This includes deploying AWS-managed hardware and software
+        outside of AWS data centers.
+
+    - For example, imagine that you store large media files in the North Virginia region, and your Australian
+        users want to access those files.  With edge locations, you can cache frequently accessed files
+        on servers closer to the users.
+
+    - AWS CloudFront is a prime tenant of edge location services.  This is a CDN service designed to help
+        you create distribution points for your content.  The distribution points are created at these
+        edge locations in each Region, and content is then cached at the edge locations closest to the
+        end users that attempt to access your content.
+
+    - Edge locations do more than just cache content.  For S3 allows you to upload any data to buckets.
+        S3 Transfer Acceleration allows you to upload your content via these edge locations.  Once your
+        data reaches an edge location closer to you, it then traverses the AWS backbone using high-speed
+        links, greatly increasing your upload speeds.
+
+    - Edge locations are connected to AWS regions through the AWS backbone network, which comprises fully
+        redundant, multiple 100-GB parallel fiber connections.
+
+    - Edge locations do have some limitations in that their cache size will fill up over time, and they
+        will evict content not recently accessed.  To reduce the number of times this happens, AWS also
+        offers Regional Edge Caches.  These caches have larger sizes and can hold data for a longer
+        period of time than the edge locations.
+
+
+
+- Regional and Global Services
+
+    - Most services on AWS are Region-based, so you must choose the Region you want to deploy your resource
+        into.  This is because the underlying infrastructure will reside in the Region you are working in.
+        You'll also need to know the region your resource is deployed in to access it.
+
+
+    - There are some services that are Global.  You can directly access these services from any Region.
+        The following services are examples of Global services:
+
+        - AWS IAM - Service that enables you to grant access to services and resources in your AWS account.
+                      IAM allows you to create IAM users, define permissions, configure groups, and set up
+                      roles.
+
+        - AWS CloudFront - A CDN service that allows you to create distribution points for your content for a
+                             specific origin server.  The CloudFront services will cache content locally at
+                             edge locations closest to the users that request your content.
+
+        - AWS Route53 - A fully-managed cloud DNS
+
+        - AWS S3 - Although buckets are created in a specific Region, the service is presented as a global
+                     service.  When you access the S3 console, you do not need to pick a Region.  All buckets
+                     across all Regions are listed.
+
+
+
+- On-Premises Services
+
+    - Amazon Snow Family
+
+        - These are physical enclosure units that contain SSDs, compute hardware, and networking components
+            shipped to client sites.
+
+        - The Snow Family comprises Snowball Edge Devices, Snowcone, and Snowmobile.
+
+        - They can be used to copy PB of data onto the devices, which are then returned to AWS to be copied into
+            S3.  They offer compute capability so that data can be processed and analyzed while being copied.
+
+
+    - Amazon Storage Gateway
+
+        - This enables users to connect their on-premises storage with S3.
+
+        - Depending on the configuration chosen, Storage Gatweay can maintain a small subnet of frequently
+            accessed data locally, with the bulk of data in S3.
+
+
+    - Amazon Outposts
+
+        - This is a 42U rack that can scale from 1-96 racks to create pools of compute and storage capacity, hosted
+            at your local data center.  The 'U' is a standard 1.75-inch-height rack space.
+
+        - Amazon Outposts offers EC2 and RDS services on premise.  This enables low-latency, local data processing,
+            and adherence to data-residency requirements.  ECS, EKS, and EMR clusters can also be run locally, as
+            can S3.
+
+
+
+- AWS Support Plans
+
+    - 
