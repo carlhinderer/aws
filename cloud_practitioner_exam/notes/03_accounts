@@ -1,0 +1,152 @@
+-----------------------------------------------------------------------
+| CHAPTER 3 - AWS ACCOUNTS                                            |
+-----------------------------------------------------------------------
+
+- Having a Multi-Account Environment
+
+    - Hosting your non-production and production environments in the same account can get very complex,
+        especially if you need applications isolated from each other for compliance or security reasons.  You
+        would need highly complex policies and permissions to ensure different workload types are segragated.
+
+    - Having separate accounts also limits the blast radius of any major disasters.  For instance,
+        misconfiguring an autoscaling group in a sandbox environment won't affect other accounts.
+
+    - An example of separate accounts would be to have Development, UAT, and Production accounts for a company.
+
+
+    - Key benefits oa a multi-account architecture:
+
+        - Administrative isolation between workloads
+
+            You can offer different levels of administrative controls to different users.  For instance, you
+              don't grant developers full access to the Production account.
+
+        - Limited visibility and discoverability of workloads
+
+            You can isolate your workloads from any identity external to the account.  Applications and resources
+              deployed in an account are not accessible to identities (users and applications) unless explicitly
+              granted.
+
+        - Isolation of security and identity management
+
+            Instead of creating user accounts in each AWS account they need to work in, you can host all your users
+              in a separate 'AWS identity management account'.  This allows you to avoid duplicate accounts for
+              your staff and reduces management overhead.  Users can be granted access to any of your other accounts
+              using 'cross-account access'.
+
+        - Isolation of recovery or audit accounts
+
+            Workloads related to disaster recovery and business continuity are placed in a separate account as a
+              best practice.
+
+
+
+- AWS Landing Zone
+
+    - Building a multi-account environment can become very complex, so AWS offers it's customers a set of best practice
+        methodologies to follow.
+
+    - Previously, AWS offered a solution called Landing Zone, which has now been deprecated and is in long-term support.
+        AWS Control Tower is it's replacement.
+
+
+
+- AWS Control Tower
+
+    - The Control Tower service automates the setup of a new landing zone using blueprints.  AWS accounts created as 
+        part of this landing zone include:
+
+        - Creation of AWS Organizations and multi-account setup
+        - Identity and Access Management with AWS SSO default directory services
+        - Account federation using SSO
+        - Centralized logging using AWS CloudTrail and AWS Config
+
+
+    - The landing zone deployed by Control Tower comes configured with recommended security policies called 'guardrails'
+        and customers can choose how accounts are configured to comply with organizational policies.
+
+
+
+- AWS Organizations
+
+    - The AWS Organizations service enables you to centrally manage all of your AWS accounts.  This is a free service,
+        however the resources launched by the service are not.
+
+    - AWS Organizations allows you to create one 'management account' (previously known as a 'master account') and then
+        invite or create additional AWS accounts that will become member accounts of the organization.  This allows you
+        to scope out which services can be consumed in your individual memeber accounts.
+
+    - You can also have multiple member accounts in each AWS Organizations instance, where some accounts may share
+        similar types of workloads.  You can, therefore, collate common accounts under OUs (Organizational Units).
+        An OU is a logical group of one or more accounts in your AWS Organizations that allows you to organize your
+        accounts into hierarchies.
+
+
+    - You can then apply SCPs (Service Control Policies) to your OUs to apply guardrails to what services can be deployed
+        and configured in each account.
+
+                        [Master Account]
+                          [AWS Organizations]
+                                    |
+                    -----------------------------------
+                    |                |                |
+                   SCP              SCP              SCP
+                    |                |                |
+                    |                |                |
+            [Development OU]     [Testing OU]       [Production OU]
+              [Development Acct]   [UAT Acct]         [Production Acct]
+
+
+
+- Consolidated Billing
+
+    - Another key feature of AWS Organizations is 'consolidated billing'.  AWS Organizations can be deployed using 1
+        of 2 options:
+
+        1. All features
+
+             This allows you to take advantage of security and management capabilities SCPs and tag policies.  This
+               option also comes with the consolidated billing feature, which allows you to have one bill for all your
+               member accounts.  The Manager Account is ultimately responsible for the bill and charges incurred by
+               other member accounts.
+
+        2. Consolidated billing feature
+
+             With this option, you get basic management tools and the ability to get a centralized bill for all of your
+               member accounts.
+
+
+    - Advantages of centralized billing include:
+
+        - A single bill, with charges broken down by member account
+
+        - Easy tracking
+
+        - Volume discounts when charges cross certain thresholds
+
+        - Consolidated billing is a free service
+
+
+
+- Example - Configuring AWS Organizations
+
+    - Core OUs
+
+        - At a basic level, you should configure an 'Infrastructure OU' and a 'Security OU', which will create a shared
+            infrastructure services account and a security account.
+
+        - The 'Infrastructure Services Account' will contain services that can be shared across all accounts for common
+            services.  Examples include directory services, shared networking environments, and other common shared IT
+            services such as a central repository for AMIs.
+
+        - The 'Security Services Account' will contain a centralized IAM account to host individual user accounts, groups,
+            and roles.  These identities will then be granted access via cross-account policies, as well as other
+            services for logging and auditing.
+
+        - Both of the core OUs will create non-production and production accounts.  This limits the blast radius of any
+            disasters.
+
+
+    - Additional OUs
+
+        - 

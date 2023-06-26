@@ -158,4 +158,77 @@
 
 - AWS Support Plans
 
-    - 
+    - Basic Support Plan
+
+        - Every AWS account is subscribed to the Basic support plan.  It is free and offers support for account-related
+            issues like bill payment and logging in.  You also get access to documentation and forums.
+
+        - These services can be accessed via email, chat, and phone.
+
+        - You also get access to 7 basic checks on the Trusted Advisor tool, which helps you identify best practices
+            for performance and security.
+
+        - You get alerts regarding interruptions to any AWS services on your Personal Health Dashboard.
+
+
+    - Developer Support Plan
+
+        - The Developer plan is recommended if you are experimenting or testing on AWS.  This helps with support of
+            non-production workloads that don't support any critical business requirement, and is offered at a low
+            price.
+
+        - This plan is limited to generic support primarily around technical configurations.  The support team will not
+            be able to discuss specific application-layer problems you are having.
+
+        - Support is available only via email during business hours.
+
+
+    - Business Support Plan
+
+        - The Business plan is recommended for production environments and enables companies to get technical support
+            with their workloads.  One example is an RDS instance that failed and a restore from backup needs to be
+            performed.
+
+        - Support is available 24/7 via email, chat, and phone.  Response times vary based on severity of the issue.
+
+        - Support includes troubleshooting interoperability between AWS resources and third party software.
+
+        - For an additional cost, you can get access to AWS IEM (Infrastructure Event Management).  This service offers
+            guidance and operational support to help with project launch events or migration tasks.  The service
+            includes readiness checks, risk mitigation, support during the launch, and a post-event review.
+
+        - You also receive a full set of Trusted Advisor checks.
+
+
+    - Enterprise Support Plan
+
+        - The Enterprise plan offers the best support, and starts at $15K per month.  This is appropriate for very
+            very large organizations.
+
+        - A TAM (Technical Account Manager) is assigned to your account.  They will actively monitor your environment
+            and guide your team through projects.  They can also provide access to the best experts within AWS.
+
+        - You'll get a 15-minute response time for business-critical issues.
+
+
+
+- Dashboards
+
+    - AWS publishes service health status across all data centers located in it's various Regions on the Service
+        Health Dashboard.
+
+        https://status.aws.amazon.com
+
+
+    - More tailored information that affectus your applications and resources is displayed on the Personal Health
+        Dashboard.  This includes proactive notifications, troubleshooting guidance, and integration with CloudWatch
+        events.
+
+
+
+- The AWS AuP
+
+    - Note that if you sign up for an AWS account, you must comply with the Acceptable Use Policy.  If you don't
+        adhere to the guidelines, your account may be suspended or terminated.
+
+        https://aws.amazon.com/aup/
